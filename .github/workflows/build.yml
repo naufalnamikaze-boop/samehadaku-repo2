@@ -15,4 +15,4 @@ jobs:
           distribution: temurin
           java-version: '17'
       - run: chmod +x gradlew
-      - run: ./gradlew ExampleProvider:make
+      - run: ./gradlew samehadaku:make
