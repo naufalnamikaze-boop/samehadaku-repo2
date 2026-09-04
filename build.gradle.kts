@@ -1,5 +1,13 @@
-plugins {
-    id("com.android.library") version "8.6.1" apply false
-    kotlin("android") version "2.0.21" apply false
-    id("com.lagradost.cloudstream3.gradle") version "v3.7.2" apply false
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+        maven("https://jitpack.io")
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.6.1")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21")
+        classpath("com.github.lagradost:gradle:master-SNAPSHOT")
+    }
 }
