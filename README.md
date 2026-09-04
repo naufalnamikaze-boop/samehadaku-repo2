@@ -1,16 +1,15 @@
-# CloudStream Legal Demo Provider
+# CloudStream repository Samehadaku
 
 Template latihan untuk membuat repository/extension CloudStream.
-Provider ini hanya contoh struktur dan tidak mengambil konten berhak cipta.
 
 ## Build
 Linux/macOS:
-`./gradlew ExampleProvider:make`
+`./gradlew samehadaku:make`
 
 Windows:
-`gradlew.bat ExampleProvider:make`
+`gradlew.bat samehadaku:make`
 
 Struktur:
-- `ExampleProvider/` = extension/provider
+- `samehadaku/` = extension/provider
 - `repo.json` = metadata repository
 - `.github/workflows/` = contoh automation build

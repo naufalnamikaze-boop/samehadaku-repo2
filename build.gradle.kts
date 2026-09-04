@@ -1,11 +1,5 @@
 plugins {
     id("com.android.library") version "8.6.1" apply false
     kotlin("android") version "2.0.21" apply false
-}
-
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
+    id("com.lagradost.cloudstream3.gradle") version "master-SNAPSHOT" apply false
 }
