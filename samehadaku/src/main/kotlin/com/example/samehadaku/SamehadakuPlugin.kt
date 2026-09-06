@@ -1,4 +1,4 @@
-package com.example.samehadaku
+package com.example.Samehadaku
 
 import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 import com.lagradost.cloudstream3.plugins.Plugin
@@ -8,6 +8,6 @@ import android.content.Context
 class SamehadakuPlugin : Plugin() {
     override fun load(context: Context) {
         // Mendaftarkan class MainAPI Samehadaku agar terbaca di Cloudstream
-        registerMainAPI(samehadaku())
+        registerMainAPI(Samehadaku())
     }
 }
