@@ -23,5 +23,6 @@ kotlin {
 }
 
 dependencies {
-    implementation("org.jsoup:jsoup:1.18.3")
+    implementation("com.github.recloudstream.cloudstream:library:-SNAPSHOT")
+implementation("org.jsoup:jsoup:1.18.3")
 }
