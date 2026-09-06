@@ -1,4 +1,4 @@
-package com.example.samehadaku
+package com.example.Samehadaku
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
