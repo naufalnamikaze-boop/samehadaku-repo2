@@ -212,58 +212,47 @@ class Kuramanime : MainAPI() {
     // SEARCH
     // =========================================================
 
-    override suspend fun search(
-    query: String
-): List<SearchResponse> {
+    override suspend fun search(query: String): List<SearchResponse> {
+    val encoded = URLEncoder.encode(
+        query,
+        StandardCharsets.UTF_8.toString()
+    )
 
-    val encoded =
-        URLEncoder.encode(
-            query,
-            StandardCharsets.UTF_8.toString()
-        )
-
-    val result =
-        getWithFallback(
-            "/anime?search=$encoded&order_by=text"
-        ) ?: return emptyList()
+    val result = getWithFallback(
+        "/anime?search=$encoded&order_by=oldest"
+    ) ?: return emptyList()
 
     val document = result.second
 
     return document
-        .select("div.product__item, .product__item")
+        .select("div.product__item")
         .mapNotNull { item ->
 
-            val link =
-                item.selectFirst(
-                    "a[href*=/anime/]"
-                ) ?: return@mapNotNull null
+            val link = item.selectFirst(
+                "a[href*=/anime/]"
+            ) ?: return@mapNotNull null
 
-            val href =
-                normalizeUrl(
-                    link.attr("href")
-                )
+            val href = normalizeUrl(
+                link.attr("href")
+            )
 
             if (href.isBlank()) {
                 return@mapNotNull null
             }
 
-            val title =
-                item.selectFirst(
-                    "h5, h4, h3, " +
-                    ".product__item__text h5, " +
-                    ".product__item__text a"
-                )
-                    ?.text()
-                    ?.trim()
-                    ?.takeIf { it.isNotBlank() }
-                    ?: return@mapNotNull null
+            val title = item.selectFirst(
+                "h5, h4, h3"
+            )
+                ?.text()
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
 
-            val poster =
-                item.selectFirst(
-                    ".set-bg[data-setbg]"
-                )
-                    ?.attr("data-setbg")
-                    ?.takeIf { it.isNotBlank() }
+            val poster = item.selectFirst(
+                ".set-bg[data-setbg]"
+            )
+                ?.attr("data-setbg")
+                ?.takeIf { it.isNotBlank() }
 
             newAnimeSearchResponse(
                 title,
@@ -273,25 +262,7 @@ class Kuramanime : MainAPI() {
                 this.posterUrl = poster
             }
         }
-        .filter { result ->
-
-            val searchWords =
-                query
-                    .lowercase()
-                    .split(Regex("\\s+"))
-                    .filter { it.length >= 2 }
-
-            val title =
-                result.name
-                    .lowercase()
-
-            searchWords.all { word ->
-                title.contains(word)
-            }
-        }
-        .distinctBy {
-            it.url
-        }
+        .distinctBy { it.url }
 }
 
     // =========================================================
