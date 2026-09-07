@@ -34,6 +34,9 @@ jobs:
 
       - name: Build Extensions
         run: ./gradlew samehadaku:make
+        
+      - name: List Gradle Tasks
+        run: ./gradlew tasks --all | grep -i "plugin\|json\|make"
 
       - name: Prepare Repository
         run: |
