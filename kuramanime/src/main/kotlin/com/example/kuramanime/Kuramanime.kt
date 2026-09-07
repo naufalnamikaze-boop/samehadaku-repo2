@@ -545,7 +545,7 @@ class Kuramanime : MainAPI() {
     }
 
     // Kalau gagal, tunggu sebentar lalu coba sekali lagi
-    kotlinx.coroutines.delay(1000)
+    Thread.sleep(1000)
 
     return loadLinksOnce(
         data,
