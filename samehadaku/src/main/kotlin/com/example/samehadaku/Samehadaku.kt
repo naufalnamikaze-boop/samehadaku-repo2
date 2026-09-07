@@ -431,84 +431,74 @@ class Samehadaku : MainAPI() {
          * benar-benar menerima ExtractorLink.
          */
 
-        val acefileLinks = document
-            .select("a[href]")
-            .mapNotNull { element ->
+        /*
+ * ============================================================
+ * 2. DOWNLOAD SOURCE - ACEFILE
+ * ============================================================
+ */
 
-                val href = element
-                    .attr("href")
-                    .trim()
+val acefileLinks = document
+    .select("a[href]")
+    .mapNotNull { element ->
 
-                if (
-                    href.contains(
-                        "acefile.co/f/",
-                        ignoreCase = true
-                    )
-                ) {
-                    href
-                } else {
-                    null
-                }
-            }
-            .distinct()
+        val href = element
+            .attr("href")
+            .trim()
 
-        for (acefileUrl in acefileLinks) {
-
-            var acefileFound = false
-
-            val acefileCallback:
-                (ExtractorLink) -> Unit = { link ->
-
-                acefileFound = true
-
-                callback(
-                    newExtractorLink(
-                        name,
-                        "Acefile",
-                        link.url,
-                        link.type
-                    ) {
-                        this.referer =
-                            link.referer
-
-                        this.quality =
-                            link.quality
-
-                        this.headers =
-                            link.headers
-
-                        this.extractorData =
-                            link.extractorData
-
-                        this.audioTracks =
-                            link.audioTracks
-                    }
-                )
-            }
-
-            val success = runCatching {
-                 loadExtractor(
-                    acefileUrl,
-                    data,
-                    subtitleCallback,
-                    acefileCallback
-                )
-
-            }.getOrNull()
-
-            /*
-             * Hanya dianggap aktif kalau extractor benar-benar
-             * menghasilkan video link.
-             */
-
-            if (
-                success == true &&
-                acefileFound
-            ) {
-                found = true
-            }
+        if (
+            href.contains(
+                "acefile.co/f/",
+                ignoreCase = true
+            )
+        ) {
+            href
+        } else {
+            null
         }
+    }
+    .distinct()
 
-        return found
+for (acefileUrl in acefileLinks) {
+
+    var acefileFound = false
+
+    val acefileCallback:
+        (ExtractorLink) -> Unit = { link ->
+
+        acefileFound = true
+
+        callback(
+            newExtractorLink(
+                name,
+                "Acefile",
+                link.url,
+                link.type
+            ) {
+                this.referer = link.referer
+                this.quality = link.quality
+                this.headers = link.headers
+                this.extractorData = link.extractorData
+                this.audioTracks = link.audioTracks
+            }
+        )
+    }
+
+    var success = false
+
+    try {
+        success = loadExtractor(
+            acefileUrl,
+            data,
+            subtitleCallback,
+            acefileCallback
+        )
+    } catch (_: Exception) {
+        success = false
+    }
+
+    if (success && acefileFound) {
+        found = true
     }
 }
+
+return found
