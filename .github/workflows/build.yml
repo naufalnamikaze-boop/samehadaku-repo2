@@ -113,3 +113,16 @@ jobs:
           echo
           echo "=== FILE HASH ==="
           sha256sum publish/plugins.json
+      - name: Publish to builds branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout --orphan builds
+          git rm -rf . 2>/dev/null || true
+
+          cp -r publish/* .
+
+          git add .
+          git commit -m "Update CloudStream plugins"
+          git push -f origin builds
