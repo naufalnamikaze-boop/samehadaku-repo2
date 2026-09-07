@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -29,3 +30,17 @@ jobs:
 
       - name: Build Extension
         run: ./gradlew samehadaku:make
+
+      - name: Show Build Output
+        run: |
+          echo "=== Mencari file hasil build ==="
+          find samehadaku/build -type f | sort
+
+      - name: Upload CloudStream Plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: Samehadaku-Plugin
+          path: |
+            samehadaku/build/**/*.cs3
+            samehadaku/build/**/*.json
+          if-no-files-found: warn
