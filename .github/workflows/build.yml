@@ -34,9 +34,9 @@ jobs:
 
       - name: Build Extensions
         run: |
-           ./gradlew samehadaku:make
-           ./gradlew kuramanime:make
-        
+          ./gradlew samehadaku:make
+          ./gradlew kuramanime:make
+
       - name: Generate Plugins JSON
         run: ./gradlew makePluginsJson
 
@@ -80,6 +80,14 @@ jobs:
                       f"{repo}/builds/samehadaku.cs3"
                   )
 
+              elif internal_name == "kuramanime":
+                  plugin["name"] = "Kuramanime"
+                  plugin["internalName"] = "Kuramanime"
+                  plugin["url"] = (
+                      f"https://raw.githubusercontent.com/"
+                      f"{repo}/builds/kuramanime.cs3"
+                  )
+
           path.write_text(
               json.dumps(data, indent=4, ensure_ascii=False) + "\n"
           )
@@ -107,7 +115,7 @@ jobs:
           echo
           echo "=== FILE ==="
           ls -lah publish
-          
+
       - name: Check Publish Plugins JSON
         run: |
           echo "=== PUBLISH PLUGINS.JSON ==="
@@ -116,7 +124,7 @@ jobs:
           echo
           echo "=== FILE HASH ==="
           sha256sum publish/plugins.json
-          
+
       - name: Publish to builds branch
         run: |
           git config user.name "github-actions[bot]"
