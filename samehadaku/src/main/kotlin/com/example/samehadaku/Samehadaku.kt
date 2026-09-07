@@ -420,85 +420,65 @@ class Samehadaku : MainAPI() {
 
         /*
          * ============================================================
+         /*
+         * ============================================================
          * 2. DOWNLOAD SOURCE - ACEFILE
          * ============================================================
-         *
-         * Acefile akan kita cek maksimal 5 detik.
-         *
-         * Penting:
-         * loadExtractor() saja belum cukup untuk menyatakan
-         * sumber playable. Kita harus memastikan callback
-         * benar-benar menerima ExtractorLink.
          */
 
-        /*
- * ============================================================
- * 2. DOWNLOAD SOURCE - ACEFILE
- * ============================================================
- */
+        val acefileLinks = document
+            .select("a[href]")
+            .mapNotNull { element ->
 
-val acefileLinks = document
-    .select("a[href]")
-    .mapNotNull { element ->
+                val href = element
+                    .attr("href")
+                    .trim()
 
-        val href = element
-            .attr("href")
-            .trim()
-
-        if (
-            href.contains(
-                "acefile.co/f/",
-                ignoreCase = true
-            )
-        ) {
-            href
-        } else {
-            null
-        }
-    }
-    .distinct()
-
-for (acefileUrl in acefileLinks) {
-
-    var acefileFound = false
-
-    val acefileCallback:
-        (ExtractorLink) -> Unit = { link ->
-
-        acefileFound = true
-
-        callback(
-            newExtractorLink(
-                name,
-                "Acefile",
-                link.url,
-                link.type
-            ) {
-                this.referer = link.referer
-                this.quality = link.quality
-                this.headers = link.headers
-                this.extractorData = link.extractorData
-                this.audioTracks = link.audioTracks
+                if (
+                    href.contains(
+                        "acefile.co/f/",
+                        ignoreCase = true
+                    )
+                ) {
+                    href
+                } else {
+                    null
+                }
             }
-        )
-    }
+            .distinct()
 
-    var success = false
+        for (acefileUrl in acefileLinks) {
 
-    try {
-        success = loadExtractor(
-            acefileUrl,
-            data,
-            subtitleCallback,
-            acefileCallback
-        )
-    } catch (_: Exception) {
-        success = false
-    }
+            var acefileFound = false
 
-    if (success && acefileFound) {
-        found = true
+            val acefileCallback:
+                (ExtractorLink) -> Unit = { link ->
+
+                acefileFound = true
+
+                // Teruskan langsung link hasil extractor Acefile.
+                // Tidak perlu membuat ExtractorLink baru.
+                callback(link)
+            }
+
+            var success = false
+
+            try {
+                success = loadExtractor(
+                    acefileUrl,
+                    data,
+                    subtitleCallback,
+                    acefileCallback
+                )
+            } catch (_: Exception) {
+                success = false
+            }
+
+            if (success && acefileFound) {
+                found = true
+            }
+        }
+
+        return found
     }
 }
-
-return found
