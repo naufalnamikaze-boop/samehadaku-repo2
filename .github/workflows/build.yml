@@ -35,8 +35,16 @@ jobs:
       - name: Build Extensions
         run: ./gradlew samehadaku:make
         
-      - name: List Gradle Tasks
-        run: ./gradlew tasks --all | grep -i "plugin\|json\|make"
+      - name: Generate Plugins JSON
+        run: ./gradlew makePluginsJson
+
+      - name: Find Plugins JSON
+        run: |
+          echo "=== Mencari semua plugins.json ==="
+          find . -name "plugins.json" -type f -print
+          
+          echo "=== Mencari semua file JSON ==="
+          find . -name "*.json" -type f -print
 
       - name: Prepare Repository
         run: |
