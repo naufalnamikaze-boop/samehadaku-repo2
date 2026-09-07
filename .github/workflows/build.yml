@@ -104,3 +104,12 @@ jobs:
           echo
           echo "=== FILE ==="
           ls -lah publish
+          
+      - name: Check Publish Plugins JSON
+        run: |
+          echo "=== PUBLISH PLUGINS.JSON ==="
+          cat publish/plugins.json
+
+          echo
+          echo "=== FILE HASH ==="
+          sha256sum publish/plugins.json
