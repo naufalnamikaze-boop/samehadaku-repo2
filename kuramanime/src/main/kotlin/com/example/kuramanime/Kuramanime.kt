@@ -522,15 +522,49 @@ class Kuramanime : MainAPI() {
     // =========================================================
 
     override suspend fun loadLinks(
-        data: String,
-        isCasting: Boolean,
-        subtitleCallback: (
-            SubtitleFile
-        ) -> Unit,
-        callback: (
-            ExtractorLink
-        ) -> Unit
-    ): Boolean {
+    data: String,
+    isCasting: Boolean,
+    subtitleCallback: (
+        SubtitleFile
+    ) -> Unit,
+    callback: (
+        ExtractorLink
+    ) -> Unit
+): Boolean {
+
+    // Percobaan pertama
+    val firstAttempt = loadLinksOnce(
+        data,
+        isCasting,
+        subtitleCallback,
+        callback
+    )
+
+    if (firstAttempt) {
+        return true
+    }
+
+    // Kalau gagal, tunggu sebentar lalu coba sekali lagi
+    kotlinx.coroutines.delay(1000)
+
+    return loadLinksOnce(
+        data,
+        isCasting,
+        subtitleCallback,
+        callback
+    )
+}
+
+private suspend fun loadLinksOnce(
+    data: String,
+    isCasting: Boolean,
+    subtitleCallback: (
+        SubtitleFile
+    ) -> Unit,
+    callback: (
+        ExtractorLink
+    ) -> Unit
+): Boolean {
 
         var found = false
 
