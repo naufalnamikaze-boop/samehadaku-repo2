@@ -75,8 +75,25 @@ jobs:
           EOF
 
           echo "=== HASIL PUBLISH ==="
-          cat publish/plugins.json
-          echo
-          cat publish/repo.json
-          echo
           ls -lah publish
+
+      - name: Upload CloudStream Plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: Samehadaku-Plugin
+          path: publish/*
+          if-no-files-found: error
+
+      - name: Publish builds branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout --orphan builds
+          git rm -rf . 2>/dev/null || true
+
+          cp -r publish/* .
+
+          git add .
+          git commit -m "Update CloudStream extensions"
+          git push --force origin builds
