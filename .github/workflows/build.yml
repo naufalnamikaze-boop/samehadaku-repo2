@@ -53,6 +53,7 @@ jobs:
 
           echo "=== Menyalin plugin ==="
           cp samehadaku/build/*.cs3 publish/
+          cp kuramanime/build/*.cs3 publish/
 
           echo "=== Menyalin plugins.json hasil Gradle ==="
           cp build/plugins.json publish/
