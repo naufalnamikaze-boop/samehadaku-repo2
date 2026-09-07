@@ -222,88 +222,76 @@ class Kuramanime : MainAPI() {
             StandardCharsets.UTF_8.toString()
         )
 
-    val searchPaths = listOf(
-        "/anime?search=$encoded&order_by=text",
-        "/anime?keyword=$encoded"
-    )
+    val result =
+        getWithFallback(
+            "/anime?search=$encoded&order_by=text"
+        ) ?: return emptyList()
 
-    for (path in searchPaths) {
+    val document = result.second
 
-        val result =
-            getWithFallback(path)
-                ?: continue
+    return document
+        .select("div.product__item, .product__item")
+        .mapNotNull { item ->
 
-        val document =
-            result.second
+            val link =
+                item.selectFirst(
+                    "a[href*=/anime/]"
+                ) ?: return@mapNotNull null
 
-        val results =
-            document
-                .select(
-                    "div.product__item, " +
-                    ".product__item, " +
-                    "div[class*=product__item]"
+            val href =
+                normalizeUrl(
+                    link.attr("href")
                 )
-                .mapNotNull { item ->
 
-                    val link =
-                        item.selectFirst(
-                            "a[href*=/anime/]"
-                        )
-                            ?: return@mapNotNull null
+            if (href.isBlank()) {
+                return@mapNotNull null
+            }
 
-                    val href =
-                        normalizeUrl(
-                            link.attr("href")
-                        )
+            val title =
+                item.selectFirst(
+                    "h5, h4, h3, " +
+                    ".product__item__text h5, " +
+                    ".product__item__text a"
+                )
+                    ?.text()
+                    ?.trim()
+                    ?.takeIf { it.isNotBlank() }
+                    ?: return@mapNotNull null
 
-                    if (href.isBlank()) {
-                        return@mapNotNull null
-                    }
+            val poster =
+                item.selectFirst(
+                    ".set-bg[data-setbg]"
+                )
+                    ?.attr("data-setbg")
+                    ?.takeIf { it.isNotBlank() }
 
-                    val title =
-                        item.selectFirst("h5")
-                            ?.text()
-                            ?.trim()
-                            ?.takeIf {
-                                it.isNotBlank()
-                            }
-                            ?: item.selectFirst(
-                                "a:last-of-type"
-                            )
-                                ?.text()
-                                ?.trim()
-                                ?.takeIf {
-                                    it.isNotBlank()
-                                }
-                            ?: return@mapNotNull null
-
-                    val poster =
-                        item.selectFirst(
-                            ".set-bg"
-                        )
-                            ?.attr("data-setbg")
-                            ?.takeIf {
-                                it.isNotBlank()
-                            }
-
-                    newAnimeSearchResponse(
-                        title,
-                        href,
-                        TvType.Anime
-                    ) {
-                        this.posterUrl = poster
-                    }
-                }
-                .distinctBy {
-                    it.url
-                }
-
-        if (results.isNotEmpty()) {
-            return results
+            newAnimeSearchResponse(
+                title,
+                href,
+                TvType.Anime
+            ) {
+                this.posterUrl = poster
+            }
         }
-    }
+        .filter { result ->
 
-    return emptyList()
+            val searchWords =
+                query
+                    .lowercase()
+                    .split(Regex("\\s+"))
+                    .filter { it.length >= 2 }
+
+            val title =
+                result.name
+                    .lowercase()
+
+            searchWords.all { word ->
+                title.contains(word)
+            }
+        }
+        .distinctBy {
+            it.url
+        }
 }
 
     // =========================================================
