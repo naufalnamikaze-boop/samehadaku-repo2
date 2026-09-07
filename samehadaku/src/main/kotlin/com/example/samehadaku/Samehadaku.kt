@@ -4,6 +4,8 @@ import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
 import okhttp3.FormBody
 import org.jsoup.nodes.Element
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 class Samehadaku : MainAPI() {
 
@@ -121,7 +123,8 @@ class Samehadaku : MainAPI() {
          * Bukan lagi:
          * /?s=QUERY
          */
-        val encodedQuery = query.urlEncode()
+        val encodedQuery = URLEncoder.encode (query, StandardCharsets.UTF_8.toString()
+                                             )
 
         val document = app.get(
             "$mainUrl/daftar-anime-2/?title=$encodedQuery"
