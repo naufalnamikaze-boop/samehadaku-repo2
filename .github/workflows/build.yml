@@ -38,6 +38,11 @@ jobs:
       - name: Generate Plugins JSON
         run: ./gradlew makePluginsJson
 
+      - name: Check Generated Plugins JSON
+        run: |
+          echo "=== GENERATED PLUGINS.JSON ==="
+          cat build/plugins.json
+
       - name: Prepare Repository
         run: |
           mkdir -p publish
