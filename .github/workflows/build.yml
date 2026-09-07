@@ -5,14 +5,21 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - uses: actions/setup-java@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
@@ -25,22 +32,41 @@ jobs:
       - name: Generate Gradle Wrapper
         run: gradle wrapper --gradle-version 8.10.2
 
-      - name: Check Gradle Version
-        run: ./gradlew --version
+      - name: Build Extensions
+        run: ./gradlew make makePluginsJson
 
-      - name: Build Extension
-        run: ./gradlew samehadaku:make
-
-      - name: Show Build Output
+      - name: Prepare Repository
         run: |
-          echo "=== Mencari file hasil build ==="
-          find samehadaku/build -type f | sort
+          mkdir -p publish
 
-      - name: Upload CloudStream Plugin
-        uses: actions/upload-artifact@v4
-        with:
-          name: Samehadaku-Plugin
-          path: |
-            samehadaku/build/**/*.cs3
-            samehadaku/build/**/*.json
-          if-no-files-found: warn
+          cp samehadaku/build/*.cs3 publish/
+
+          cp plugins.json publish/
+
+          cat > publish/repo.json <<'EOF'
+          {
+            "name": "Naufal Namikaze CloudStream",
+            "description": "My CloudStream extensions",
+            "manifestVersion": 1,
+            "pluginLists": [
+              "https://raw.githubusercontent.com/${{ github.repository }}/builds/plugins.json"
+            ]
+          }
+          EOF
+
+          echo "=== PUBLISH FILES ==="
+          find publish -type f -maxdepth 1 -print
+
+      - name: Publish builds branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout --orphan builds
+          git rm -rf . 2>/dev/null || true
+
+          cp -r publish/* .
+
+          git add .
+          git commit -m "Update CloudStream extensions"
+          git push --force origin builds
