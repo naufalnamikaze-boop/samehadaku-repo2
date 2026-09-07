@@ -33,17 +33,37 @@ jobs:
         run: gradle wrapper --gradle-version 8.10.2
 
       - name: Build Extensions
-        run: ./gradlew make makePluginsJson
+        run: ./gradlew samehadaku:make
 
       - name: Prepare Repository
         run: |
           mkdir -p publish
 
+          echo "=== Mencari file CS3 ==="
+          find . -name "*.cs3" -type f
+
+          echo "=== Menyalin plugin ==="
           cp samehadaku/build/*.cs3 publish/
 
-          cp plugins.json publish/
+          echo "=== Membuat plugins.json ==="
+          PLUGIN_FILE=$(basename "$(find publish -name "*.cs3" -type f | head -n 1)")
 
-          cat > publish/repo.json <<'EOF'
+          cat > publish/plugins.json <<EOF
+          [
+            {
+              "name": "Samehadaku",
+              "internalName": "Samehadaku",
+              "url": "https://raw.githubusercontent.com/${{ github.repository }}/builds/$PLUGIN_FILE",
+              "version": "1.0.0",
+              "status": 1,
+              "authors": ["Naufal Namikaze"],
+              "description": "Samehadaku CloudStream extension"
+            }
+          ]
+          EOF
+
+          echo "=== Membuat repo.json ==="
+          cat > publish/repo.json <<EOF
           {
             "name": "Naufal Namikaze CloudStream",
             "description": "My CloudStream extensions",
@@ -54,19 +74,9 @@ jobs:
           }
           EOF
 
-          echo "=== PUBLISH FILES ==="
-          find publish -type f -maxdepth 1 -print
-
-      - name: Publish builds branch
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git checkout --orphan builds
-          git rm -rf . 2>/dev/null || true
-
-          cp -r publish/* .
-
-          git add .
-          git commit -m "Update CloudStream extensions"
-          git push --force origin builds
+          echo "=== HASIL PUBLISH ==="
+          cat publish/plugins.json
+          echo
+          cat publish/repo.json
+          echo
+          ls -lah publish
