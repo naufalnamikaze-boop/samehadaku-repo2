@@ -4,25 +4,12 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 buildscript {
-    repositories {
-        google()
-        mavenCentral()
-        maven("https://jitpack.io")
-    }
-
     dependencies {
         classpath("com.android.tools.build:gradle:8.7.3")
         classpath("com.github.recloudstream:gradle:-SNAPSHOT")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.0")
     }
 }
-
-    repositories {
-        google()
-        mavenCentral()
-        maven("https://jitpack.io")
-    }
-
 
 fun Project.cloudstream(
     configuration: CloudstreamExtension.() -> Unit
@@ -33,11 +20,9 @@ fun Project.android(
 ) = extensions.getByName<BaseExtension>("android").configuration()
 
 subprojects {
-
     apply(plugin = "com.android.library")
     apply(plugin = "kotlin-android")
     apply(plugin = "com.lagradost.cloudstream3.gradle")
-
     cloudstream {
         setRepo(
             System.getenv("GITHUB_REPOSITORY")
@@ -47,7 +32,6 @@ subprojects {
 
     android {
         namespace = "recloudstream"
-
         defaultConfig {
             minSdk = 21
             compileSdkVersion(35)
