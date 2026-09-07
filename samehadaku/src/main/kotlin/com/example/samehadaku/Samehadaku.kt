@@ -54,7 +54,9 @@ class Samehadaku : MainAPI() {
             val link = it.selectFirst("a")
             val epName = link?.text() ?: return@mapNotNull null
             val epUrl = link.attr("href")
-            Episode(epUrl, name = epName)
+            newEpisode(epUrl) {
+                name = epName
+            }
         }.reversed()
 
         val genres = document.select(".genre-info a, .spe span a").map { it.text() }
