@@ -33,8 +33,9 @@ jobs:
         run: gradle wrapper --gradle-version 8.10.2
 
       - name: Build Extensions
-        run: ./gradlew samehadaku:make
-             ./gradlew kuramanime:make
+        run: |
+           ./gradlew samehadaku:make
+           ./gradlew kuramanime:make
         
       - name: Generate Plugins JSON
         run: ./gradlew makePluginsJson
