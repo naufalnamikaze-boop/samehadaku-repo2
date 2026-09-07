@@ -713,4 +713,265 @@ class Kuramanime : MainAPI() {
                             )
                                 .document
 
-                        // ---------------------------------
+                        // -------------------------------------------------
+                        // KURAMADRIVE SOURCES
+                        // -------------------------------------------------
+
+                        postDocument
+                            .select(
+                                "video#player source[src]"
+                            )
+                            .forEach { source ->
+
+                                val sourceUrl =
+                                    source
+                                        .attr("src")
+                                        .trim()
+
+                                if (
+                                    sourceUrl.isBlank()
+                                ) {
+                                    return@forEach
+                                }
+
+                                val quality =
+                                    source
+                                        .attr("size")
+                                        .toIntOrNull()
+
+                                val qualityName =
+                                    if (
+                                        quality != null
+                                    ) {
+                                        "KuramaDrive ${quality}p"
+                                    } else {
+                                        "KuramaDrive"
+                                    }
+
+                                callback(
+                                    newExtractorLink(
+                                        name,
+                                        qualityName,
+                                        normalizeUrl(
+                                            sourceUrl
+                                        )
+                                    ) {
+
+                                        this.referer =
+                                            activeBaseUrl
+
+                                        this.quality =
+                                            when (quality) {
+
+                                                1080 ->
+                                                    Qualities
+                                                        .P1080
+                                                        .value
+
+                                                720 ->
+                                                    Qualities
+                                                        .P720
+                                                        .value
+
+                                                480 ->
+                                                    Qualities
+                                                        .P480
+                                                        .value
+
+                                                360 ->
+                                                    Qualities
+                                                        .P360
+                                                        .value
+
+                                                else ->
+                                                    Qualities
+                                                        .Unknown
+                                                        .value
+                                            }
+                                    }
+                                )
+
+                                found = true
+                            }
+
+                        // -------------------------------------------------
+                        // PIXELDRAIN DOWNLOAD
+                        // -------------------------------------------------
+
+                        var currentQuality =
+                            Qualities
+                                .Unknown
+                                .value
+
+                        postDocument
+                            .select(
+                                "#animeDownloadLink > *"
+                            )
+                            .forEach { element ->
+
+                                if (
+                                    element.tagName()
+                                        .equals(
+                                            "h6",
+                                            ignoreCase = true
+                                        )
+                                ) {
+
+                                    val text =
+                                        element
+                                            .text()
+
+                                    currentQuality =
+                                        when {
+
+                                            text.contains(
+                                                "1080"
+                                            ) ->
+                                                Qualities
+                                                    .P1080
+                                                    .value
+
+                                            text.contains(
+                                                "720"
+                                            ) ->
+                                                Qualities
+                                                    .P720
+                                                    .value
+
+                                            text.contains(
+                                                "480"
+                                            ) ->
+                                                Qualities
+                                                    .P480
+                                                    .value
+
+                                            text.contains(
+                                                "360"
+                                            ) ->
+                                                Qualities
+                                                    .P360
+                                                    .value
+
+                                            else ->
+                                                Qualities
+                                                    .Unknown
+                                                    .value
+                                        }
+
+                                } else {
+
+                                    element
+                                        .select(
+                                            "a[href]"
+                                        )
+                                        .forEach { link ->
+
+                                            val href =
+                                                link
+                                                    .attr(
+                                                        "href"
+                                                    )
+
+                                            val pixelDrainId =
+                                                Regex(
+                                                    "pixeldrain\\.com/[du]/(\\w+)"
+                                                )
+                                                    .find(
+                                                        href
+                                                    )
+                                                    ?.groupValues
+                                                    ?.getOrNull(
+                                                        1
+                                                    )
+
+                                            if (
+                                                pixelDrainId != null
+                                            ) {
+
+                                                callback(
+                                                    newExtractorLink(
+                                                        name,
+                                                        "PixelDrain",
+                                                        "https://pixeldrain.com/api/file/$pixelDrainId"
+                                                    ) {
+
+                                                        this.quality =
+                                                            currentQuality
+
+                                                        this.referer =
+                                                            activeBaseUrl
+                                                    }
+                                                )
+
+                                                found = true
+                                            }
+                                        }
+                                }
+                            }
+                    }
+                }
+            }
+
+        } catch (_: Exception) {
+            // Keep fallback extractor below alive.
+        }
+
+        // =========================================================
+        // FALLBACK IFRAME / EXTRACTOR
+        // =========================================================
+
+        if (!found) {
+
+            document
+                .select(
+                    "iframe[src], iframe[data-src]"
+                )
+                .forEach { iframe ->
+
+                    val src =
+                        iframe.attr("src")
+                            .ifBlank {
+                                iframe.attr(
+                                    "data-src"
+                                )
+                            }
+                            .trim()
+
+                    if (
+                        src.isBlank()
+                    ) {
+                        return@forEach
+                    }
+
+                    val fullSrc =
+                        if (
+                            src.startsWith("//")
+                        ) {
+                            "https:$src"
+                        } else {
+                            src
+                        }
+
+                    try {
+
+                        loadExtractor(
+                            fullSrc,
+                            data,
+                            subtitleCallback,
+                            callback
+                        )
+
+                    } catch (_: Exception) {
+                    }
+                }
+        }
+
+        return found
+    }
+
+    private val userAgent =
+        "Mozilla/5.0 (Linux; Android 10; K) " +
+            "AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) " +
+            "Chrome/131.0.0.0 Mobile Safari/537.36"
+}
