@@ -213,75 +213,98 @@ class Kuramanime : MainAPI() {
     // =========================================================
 
     override suspend fun search(
-        query: String
-    ): List<SearchResponse> {
+    query: String
+): List<SearchResponse> {
 
-        val encoded =
-            URLEncoder.encode(
-                query,
-                StandardCharsets.UTF_8.toString()
-            )
+    val encoded =
+        URLEncoder.encode(
+            query,
+            StandardCharsets.UTF_8.toString()
+        )
+
+    val searchPaths = listOf(
+        "/anime?search=$encoded&order_by=text",
+        "/anime?keyword=$encoded"
+    )
+
+    for (path in searchPaths) {
 
         val result =
-            getWithFallback(
-                "/anime?search=$encoded&order_by=text"
-            )
-                ?: return emptyList()
+            getWithFallback(path)
+                ?: continue
 
         val document =
             result.second
 
-        return document
-            .select("div.product__item")
-            .mapNotNull { item ->
+        val results =
+            document
+                .select(
+                    "div.product__item, " +
+                    ".product__item, " +
+                    "div[class*=product__item]"
+                )
+                .mapNotNull { item ->
 
-                val link =
-                    item.selectFirst(
-                        "a[href*=/anime/]"
-                    )
-                        ?: return@mapNotNull null
-
-                val href =
-                    normalizeUrl(
-                        link.attr("href")
-                    )
-
-                val title =
-                    item.selectFirst("h5")
-                        ?.text()
-                        ?.trim()
-                        ?.takeIf {
-                            it.isNotBlank()
-                        }
-                        ?: item.selectFirst(
-                            "a:last-of-type"
+                    val link =
+                        item.selectFirst(
+                            "a[href*=/anime/]"
                         )
+                            ?: return@mapNotNull null
+
+                    val href =
+                        normalizeUrl(
+                            link.attr("href")
+                        )
+
+                    if (href.isBlank()) {
+                        return@mapNotNull null
+                    }
+
+                    val title =
+                        item.selectFirst("h5")
                             ?.text()
                             ?.trim()
                             ?.takeIf {
                                 it.isNotBlank()
                             }
-                        ?: return@mapNotNull null
+                            ?: item.selectFirst(
+                                "a:last-of-type"
+                            )
+                                ?.text()
+                                ?.trim()
+                                ?.takeIf {
+                                    it.isNotBlank()
+                                }
+                            ?: return@mapNotNull null
 
-                val poster =
-                    item.selectFirst(".set-bg")
-                        ?.attr("data-setbg")
-                        ?.takeIf {
-                            it.isNotBlank()
-                        }
+                    val poster =
+                        item.selectFirst(
+                            ".set-bg"
+                        )
+                            ?.attr("data-setbg")
+                            ?.takeIf {
+                                it.isNotBlank()
+                            }
 
-                newAnimeSearchResponse(
-                    title,
-                    href,
-                    TvType.Anime
-                ) {
-                    this.posterUrl = poster
+                    newAnimeSearchResponse(
+                        title,
+                        href,
+                        TvType.Anime
+                    ) {
+                        this.posterUrl = poster
+                    }
                 }
-            }
-            .distinctBy {
-                it.url
-            }
+                .distinctBy {
+                    it.url
+                }
+
+        if (results.isNotEmpty()) {
+            return results
+        }
     }
+
+    return emptyList()
+}
 
     // =========================================================
     // LOAD ANIME DETAIL
