@@ -21,3 +21,9 @@ android {
 kotlin {
     jvmToolchain(17)
 }
+
+dependencies {
+    implementation("com.lagradost:cloudstream3:pre-release")
+    implementation("org.jsoup:jsoup:1.18.3")
+    implementation("com.github.Blatzar:NiceHttp:0.4.11")
+}
