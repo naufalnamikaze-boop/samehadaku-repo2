@@ -38,14 +38,6 @@ jobs:
       - name: Generate Plugins JSON
         run: ./gradlew makePluginsJson
 
-      - name: Find Plugins JSON
-        run: |
-          echo "=== Mencari semua plugins.json ==="
-          find . -name "plugins.json" -type f -print
-          
-          echo "=== Mencari semua file JSON ==="
-          find . -name "*.json" -type f -print
-
       - name: Prepare Repository
         run: |
           mkdir -p publish
