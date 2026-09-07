@@ -31,16 +31,25 @@ class Samehadaku : MainAPI() {
         page: Int,
         request: MainPageRequest
     ): HomePageResponse {
-        val document = app.get(request.data.format(page)).document
+
+        val document = app.get(
+            request.data.format(page)
+        ).document
 
         val home = document
-            .select("div.relat > article, main.site-main.relat > article")
+            .select(
+                "div.relat > article, main.site-main.relat > article"
+            )
             .mapNotNull { it.toSearchResult() }
 
-        return newHomePageResponse(request.name, home)
+        return newHomePageResponse(
+            request.name,
+            home
+        )
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
+
         val linkElement = selectFirst(
             "div > a, .content-thumb a, .title a, h2 a"
         ) ?: return null
@@ -51,19 +60,25 @@ class Samehadaku : MainAPI() {
 
         val title = selectFirst(
             "div.title > h2, h2.entry-title, .entry-title a, .title"
-        )?.text()?.trim() ?: return null
+        )
+            ?.text()
+            ?.trim()
+            ?: return null
 
         if (title.isBlank()) return null
 
         val posterUrl = selectFirst(
             "div.content-thumb img, .thumb img, " +
-            ".content-thumb > img, img"
-        )?.let { img ->
-            img.attr("data-src")
-                .ifEmpty { img.attr("data-lazy-src") }
-                .ifEmpty { img.attr("data-original") }
-                .ifEmpty { img.attr("src") }
-        }?.trim() ?: ""
+                ".content-thumb > img, img"
+        )
+            ?.let { img ->
+                img.attr("data-src")
+                    .ifEmpty { img.attr("data-lazy-src") }
+                    .ifEmpty { img.attr("data-original") }
+                    .ifEmpty { img.attr("src") }
+            }
+            ?.trim()
+            ?: ""
 
         return newMovieSearchResponse(
             title,
@@ -91,7 +106,9 @@ class Samehadaku : MainAPI() {
             .select(
                 "main.site-main.relat > article, div.relat > article"
             )
-            .mapNotNull { it.toSearchResult() }
+            .mapNotNull {
+                it.toSearchResult()
+            }
     }
 
     override suspend fun load(
@@ -103,7 +120,7 @@ class Samehadaku : MainAPI() {
         val title = document
             .selectFirst(
                 "h1.entry-title, h1.title, " +
-                ".entry-title h1, h3.anim-detail"
+                    ".entry-title h1, h3.anim-detail"
             )
             ?.text()
             ?.trim()
@@ -114,9 +131,9 @@ class Samehadaku : MainAPI() {
         val poster = document
             .selectFirst(
                 "div.infoanime.widget_senction > div.thumb > img, " +
-                "div.episodeinf > div.infoanime > " +
-                "div.areainfo > div.thumb > img, " +
-                ".thumb img, div.thumb img, .ts-post-image"
+                    "div.episodeinf > div.infoanime > " +
+                    "div.areainfo > div.thumb > img, " +
+                    ".thumb img, div.thumb img, .ts-post-image"
             )
             ?.let { img ->
                 img.attr("data-src")
@@ -130,8 +147,8 @@ class Samehadaku : MainAPI() {
         val description = document
             .selectFirst(
                 "div.entry-content.entry-content-single > p, " +
-                "div.desc > div.entry-content.entry-content-single, " +
-                ".entry-content, .description"
+                    "div.desc > div.entry-content.entry-content-single, " +
+                    ".entry-content, .description"
             )
             ?.text()
             ?.trim()
@@ -140,7 +157,7 @@ class Samehadaku : MainAPI() {
         val episodes = document
             .select(
                 "div.lstepsiode > ul > li, " +
-                ".eplister li, .episodelist ul li"
+                    ".eplister li, .episodelist ul li"
             )
             .mapNotNull { item ->
 
@@ -148,30 +165,39 @@ class Samehadaku : MainAPI() {
                     "span.eps > a, a"
                 ) ?: return@mapNotNull null
 
-                val epUrl = episodeLink.attr("href").trim()
+                val epUrl = episodeLink
+                    .attr("href")
+                    .trim()
 
                 if (epUrl.isBlank()) {
                     return@mapNotNull null
                 }
 
-                val epNumber = episodeLink.text().trim()
+                val epNumber = episodeLink
+                    .text()
+                    .trim()
 
-                val epTitle = item.selectFirst(
-                    "span.lchx > a, .epl-title, a"
-                )?.text()?.trim() ?: epNumber
+                val epTitle = item
+                    .selectFirst(
+                        "span.lchx > a, .epl-title, a"
+                    )
+                    ?.text()
+                    ?.trim()
+                    ?: epNumber
 
                 newEpisode(epUrl) {
 
-                    name = if (
-                        epTitle.contains(
-                            "episode",
-                            ignoreCase = true
-                        )
-                    ) {
-                        epTitle
-                    } else {
-                        "Episode $epNumber"
-                    }
+                    name =
+                        if (
+                            epTitle.contains(
+                                "episode",
+                                ignoreCase = true
+                            )
+                        ) {
+                            epTitle
+                        } else {
+                            "Episode $epNumber"
+                        }
 
                     episode = epNumber
                         .filter { it.isDigit() }
@@ -184,10 +210,14 @@ class Samehadaku : MainAPI() {
         val genres = document
             .select(
                 "div.genre-info a, " +
-                "div.spe a[rel='tag'], .genres a"
+                    "div.spe a[rel='tag'], .genres a"
             )
-            .map { it.text().trim() }
-            .filter { it.isNotBlank() }
+            .map {
+                it.text().trim()
+            }
+            .filter {
+                it.isNotBlank()
+            }
             .distinct()
 
         return newAnimeLoadResponse(
@@ -217,50 +247,15 @@ class Samehadaku : MainAPI() {
 
         var found = false
 
-        /*
-         * ============================================================
-         * 1. SERVER PLAYER SAMEHADAKU
-         * ============================================================
-         */
+        // =========================================================
+        // 1. STREAMING SERVERS
+        // =========================================================
 
         val servers = document.select(
             "#server > ul > li > div"
         )
 
-        if (servers.isEmpty()) {
-
-            val iframe = document
-                .selectFirst(
-                    "iframe[src], iframe[data-src]"
-                )
-                ?.let {
-                    it.attr("src")
-                        .ifEmpty {
-                            it.attr("data-src")
-                        }
-                        .trim()
-                }
-
-            if (!iframe.isNullOrBlank()) {
-
-                val fixedUrl = fixUrlNull(iframe)
-
-                if (fixedUrl != null) {
-
-                    val loaded = loadExtractor(
-                        fixedUrl,
-                        data,
-                        subtitleCallback,
-                        callback
-                    )
-
-                    if (loaded) {
-                        found = true
-                    }
-                }
-            }
-
-        } else {
+        if (servers.isNotEmpty()) {
 
             for (server in servers) {
 
@@ -292,25 +287,24 @@ class Samehadaku : MainAPI() {
                         ?.trim()
                         ?: "Samehadaku"
 
-                    val requestBody =
-                        FormBody.Builder()
-                            .add(
-                                "action",
-                                "player_ajax"
-                            )
-                            .add(
-                                "post",
-                                postId
-                            )
-                            .add(
-                                "nume",
-                                nume
-                            )
-                            .add(
-                                "type",
-                                type
-                            )
-                            .build()
+                    val requestBody = FormBody.Builder()
+                        .add(
+                            "action",
+                            "player_ajax"
+                        )
+                        .add(
+                            "post",
+                            postId
+                        )
+                        .add(
+                            "nume",
+                            nume
+                        )
+                        .add(
+                            "type",
+                            type
+                        )
+                        .build()
 
                     val ajaxResponse = app.post(
                         "$mainUrl/wp-admin/admin-ajax.php",
@@ -318,9 +312,8 @@ class Samehadaku : MainAPI() {
                         headers = mapOf(
                             "User-Agent" to
                                 "Mozilla/5.0 (Linux; Android 10; K) " +
-                                "AppleWebKit/537.36 " +
-                                "(KHTML, like Gecko) " +
-                                "Chrome/131.0.0.0 Mobile Safari/537.36",
+                                    "AppleWebKit/537.36 (KHTML, like Gecko) " +
+                                    "Chrome/131.0.0.0 Mobile Safari/537.36",
 
                             "Referer" to data,
 
@@ -348,6 +341,7 @@ class Samehadaku : MainAPI() {
                         fixUrlNull(embedUrl)
                             ?: continue
 
+                    // Direct video / HLS
                     if (
                         fixedEmbedUrl.contains(
                             ".m3u8",
@@ -364,9 +358,7 @@ class Samehadaku : MainAPI() {
                     ) {
 
                         val quality =
-                            getQualityFromName(
-                                serverName
-                            )
+                            getQualityFromName(serverName)
 
                         val linkType =
                             if (
@@ -396,16 +388,13 @@ class Samehadaku : MainAPI() {
 
                     } else {
 
-                        val beforeCount =
-                            0
-
-                        val loaded =
-                            loadExtractor(
-                                fixedEmbedUrl,
-                                data,
-                                subtitleCallback,
-                                callback
-                            )
+                        // Let CloudStream handle external extractor
+                        val loaded = loadExtractor(
+                            fixedEmbedUrl,
+                            data,
+                            subtitleCallback,
+                            callback
+                        )
 
                         if (loaded) {
                             found = true
@@ -418,65 +407,223 @@ class Samehadaku : MainAPI() {
             }
         }
 
-        /*
-         * ============================================================
-         * 2. DOWNLOAD SOURCE - ACEFILE
-         * ============================================================
-         */
+        // =========================================================
+        // 2. ACEFILE
+        // =========================================================
+        //
+        // Samehadaku places Acefile in the download section,
+        // not necessarily inside #server.
+        //
+        // Therefore we scan the whole episode page for Acefile URLs.
+        // =========================================================
 
         val acefileLinks = document
-            .select("a[href]")
-            .mapNotNull { element ->
-
-                val href = element
-                    .attr("href")
+            .select("a[href*='acefile.co']")
+            .mapNotNull {
+                it.attr("href")
                     .trim()
-
-                if (
-                    href.contains(
-                        "acefile.co/f/",
-                        ignoreCase = true
-                    )
-                ) {
-                    href
-                } else {
-                    null
-                }
+                    .takeIf { url ->
+                        url.isNotBlank()
+                    }
             }
             .distinct()
 
         for (acefileUrl in acefileLinks) {
 
-            var acefileFound = false
-
-            val acefileCallback:
-                (ExtractorLink) -> Unit = { link ->
-
-                acefileFound = true
-
-                // Teruskan langsung link hasil extractor Acefile.
-                // Tidak perlu membuat ExtractorLink baru.
-                callback(link)
-            }
-
-            var success = false
-
             try {
-                success = loadExtractor(
+
+                val loaded = loadAcefile(
                     acefileUrl,
                     data,
-                    subtitleCallback,
-                    acefileCallback
+                    callback
                 )
-            } catch (_: Exception) {
-                success = false
-            }
 
-            if (success && acefileFound) {
-                found = true
+                if (loaded) {
+                    found = true
+                }
+
+            } catch (_: Exception) {
+                continue
             }
         }
 
         return found
+    }
+
+    // =============================================================
+    // ACEFILE HANDLER
+    // =============================================================
+
+    private suspend fun loadAcefile(
+        url: String,
+        referer: String,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
+
+        try {
+
+            // Supports:
+            // /f/12345678/filename
+            // /d/12345678
+            // /download/12345678
+            // /player/12345678
+            // /file/12345678
+
+            val id = Regex(
+                """/(?:d|download|player|f|file)/(\w+)"""
+            )
+                .find(url)
+                ?.groupValues
+                ?.getOrNull(1)
+                ?: return false
+
+            val playerUrl =
+                "https://acefile.co/player/$id"
+
+            val playerResponse = app.get(
+                playerUrl,
+                headers = mapOf(
+                    "User-Agent" to
+                        "Mozilla/5.0 (Linux; Android 10; K) " +
+                            "AppleWebKit/537.36 " +
+                            "(KHTML, like Gecko) " +
+                            "Chrome/131.0.0.0 Mobile Safari/537.36",
+
+                    "Referer" to
+                        "https://acefile.co/"
+                )
+            )
+
+            val playerHtml =
+                playerResponse.text
+
+            if (playerHtml.isBlank()) {
+                return false
+            }
+
+            // Acefile uses packed JavaScript.
+            val script = getAndUnpack(
+                playerHtml
+            )
+
+            if (script.isBlank()) {
+                return false
+            }
+
+            // Example:
+            // service = "..."
+            val service = Regex(
+                """service\s*=\s*['"]([^'"]+)"""
+            )
+                .find(script)
+                ?.groupValues
+                ?.getOrNull(1)
+                ?: return false
+
+            // Acefile's player constructs an endpoint
+            // containing "check&id".
+            val serverUrl = Regex(
+                """['"](\S+check&id\S+?)['"]"""
+            )
+                .find(script)
+                ?.groupValues
+                ?.getOrNull(1)
+                ?.replace(
+                    "\"+service+\"",
+                    service
+                )
+                ?: return false
+
+            val videoResponse = app.get(
+                serverUrl,
+                headers = mapOf(
+                    "User-Agent" to
+                        "Mozilla/5.0 (Linux; Android 10; K) " +
+                            "AppleWebKit/537.36 " +
+                            "(KHTML, like Gecko) " +
+                            "Chrome/131.0.0.0 Mobile Safari/537.36",
+
+                    "Referer" to
+                        "https://acefile.co/"
+                )
+            )
+
+            val responseText =
+                videoResponse.text
+
+            if (responseText.isBlank()) {
+                return false
+            }
+
+            // Expected response:
+            //
+            // {
+            //     "data": "https://...."
+            // }
+            //
+            // Handle escaped JSON URL as well.
+
+            val videoUrl = Regex(
+                """"data"\s*:\s*"([^"]+)""""
+            )
+                .find(responseText)
+                ?.groupValues
+                ?.getOrNull(1)
+                ?.replace(
+                    "\\/",
+                    "/"
+                )
+                ?.replace(
+                    "\\u0026",
+                    "&"
+                )
+                ?.trim()
+
+            if (videoUrl.isNullOrBlank()) {
+                return false
+            }
+
+            val fixedVideoUrl =
+                fixUrlNull(videoUrl)
+                    ?: videoUrl
+
+            val quality =
+                getQualityFromName(url)
+
+            val linkType =
+                when {
+                    fixedVideoUrl.contains(
+                        ".m3u8",
+                        ignoreCase = true
+                    ) -> {
+                        ExtractorLinkType.M3U8
+                    }
+
+                    else -> {
+                        ExtractorLinkType.VIDEO
+                    }
+                }
+
+            callback(
+                newExtractorLink(
+                    name,
+                    "Acefile",
+                    fixedVideoUrl,
+                    linkType
+                ) {
+                    this.referer =
+                        "https://acefile.co/"
+
+                    this.quality =
+                        quality
+                }
+            )
+
+            return true
+
+        } catch (_: Exception) {
+
+            return false
+        }
     }
 }
