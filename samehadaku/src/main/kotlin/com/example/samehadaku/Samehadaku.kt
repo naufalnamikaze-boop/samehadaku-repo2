@@ -2,7 +2,6 @@ package com.example.samehadaku
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
-import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.FormBody
 import org.jsoup.nodes.Element
 import java.net.URLEncoder
@@ -487,21 +486,15 @@ class Samehadaku : MainAPI() {
                 )
             }
 
-            val success =
-                withTimeoutOrNull(5000L) {
+            val success = runCatching {
+                 loadExtractor(
+                    acefileUrl,
+                    data,
+                    subtitleCallback,
+                    acefileCallback
+                )
 
-                    runCatching {
-
-                        loadExtractor(
-                            acefileUrl,
-                            data,
-                            subtitleCallback,
-                            acefileCallback
-                        )
-
-                    }.getOrNull()
-
-                }
+            }.getOrNull()
 
             /*
              * Hanya dianggap aktif kalau extractor benar-benar
