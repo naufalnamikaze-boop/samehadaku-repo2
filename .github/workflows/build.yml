@@ -56,26 +56,8 @@ jobs:
           echo "=== Menyalin plugin ==="
           cp samehadaku/build/*.cs3 publish/
 
-          echo "=== Membuat plugins.json ==="
-          PLUGIN_FILE=$(basename "$(find publish -name "*.cs3" -type f | head -n 1)")
-
-          cat > publish/plugins.json <<EOF
-          [
-            {
-              "name": "Samehadaku",
-              "internalName": "Samehadaku",
-              "url": "https://raw.githubusercontent.com/${{ github.repository }}/builds/$PLUGIN_FILE",
-              "version": 1,
-              "apiVersion": 1,
-              "status": 1,
-              "authors": ["Naufal Namikaze"],
-              "description": "Samehadaku CloudStream extension",
-              "repositoryUrl": "https://github.com/${{ github.repository }}",
-              "tvTypes": ["Anime"],
-              "language": "id"
-            }
-          ]
-          EOF
+          echo "=== Menyalin plugins.json hasil Gradle ==="
+          cp build/plugins.json publish/
 
           echo "=== Membuat repo.json ==="
           cat > publish/repo.json <<EOF
@@ -90,25 +72,9 @@ jobs:
           EOF
 
           echo "=== HASIL PUBLISH ==="
+          echo
+          cat publish/plugins.json
+          echo
+          cat publish/repo.json
+          echo
           ls -lah publish
-
-      - name: Upload CloudStream Plugin
-        uses: actions/upload-artifact@v4
-        with:
-          name: Samehadaku-Plugin
-          path: publish/*
-          if-no-files-found: error
-
-      - name: Publish builds branch
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git checkout --orphan builds
-          git rm -rf . 2>/dev/null || true
-
-          cp -r publish/* .
-
-          git add .
-          git commit -m "Update CloudStream extensions"
-          git push --force origin builds
