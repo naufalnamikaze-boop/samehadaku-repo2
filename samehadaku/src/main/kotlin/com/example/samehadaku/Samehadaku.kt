@@ -23,7 +23,9 @@ class Samehadaku : MainAPI() {
     // =========================
 
     override val mainPage = mainPageOf(
-        "$mainUrl/daftar-anime-2/page/%d/?order=update" to "Anime Terbaru"
+    "$mainUrl/daftar-anime-2/page/%d/?order=update" to "Update Terbaru",
+    "$mainUrl/daftar-anime-2/page/%d/?type=Movie,Special" to "Movie + Special",
+    "$mainUrl/daftar-anime-2/page/%d/?status=Finished%20Airing" to "Finished Airing"
     )
 
     override suspend fun getMainPage(
