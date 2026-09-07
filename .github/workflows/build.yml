@@ -34,6 +34,7 @@ jobs:
 
       - name: Build Extensions
         run: ./gradlew samehadaku:make
+             ./gradlew kuramanime:make
         
       - name: Generate Plugins JSON
         run: ./gradlew makePluginsJson
