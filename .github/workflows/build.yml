@@ -113,6 +113,7 @@ jobs:
           echo
           echo "=== FILE HASH ==="
           sha256sum publish/plugins.json
+          
       - name: Publish to builds branch
         run: |
           git config user.name "github-actions[bot]"
