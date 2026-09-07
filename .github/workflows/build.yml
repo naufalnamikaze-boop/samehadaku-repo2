@@ -54,10 +54,14 @@ jobs:
               "name": "Samehadaku",
               "internalName": "Samehadaku",
               "url": "https://raw.githubusercontent.com/${{ github.repository }}/builds/$PLUGIN_FILE",
-              "version": "1.0.0",
+              "version": 1,
+              "apiVersion": 1,
               "status": 1,
               "authors": ["Naufal Namikaze"],
-              "description": "Samehadaku CloudStream extension"
+              "description": "Samehadaku CloudStream extension",
+              "repositoryUrl": "https://github.com/${{ github.repository }}",
+              "tvTypes": ["Anime"],
+              "language": "id"
             }
           ]
           EOF
