@@ -1,12 +1,13 @@
 package com.example.Dutamovie
 
-import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
+import android.content.Context
 import com.lagradost.cloudstream3.plugins.BasePlugin
+import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 
 @CloudstreamPlugin
-class DutamoviePlugin : Plugin() {
-    
-override fun load(context: Context) {
+class DutamoviePlugin : BasePlugin() {
+
+    override fun load(context: Context) {
         registerMainAPI(Dutamovie())
     }
 }
