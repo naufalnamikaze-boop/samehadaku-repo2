@@ -80,12 +80,12 @@ jobs:
                   plugin["internalName"] = "Samehadaku"
                   plugin["url"] = f"https://raw.githubusercontent.com/{repo}/builds/samehadaku.cs3"
 
-              elif internal_name == "kuramanime":
+              if internal_name == "kuramanime":
                   plugin["name"] = "Kuramanime"
                   plugin["internalName"] = "Kuramanime"
                   plugin["url"] = f"https://raw.githubusercontent.com/{repo}/builds/kuramanime.cs3"
 
-              elif internal_name == "lk21":
+              if internal_name == "lk21":
                   plugin["name"] = "LK21"
                   plugin["internalName"] = "LK21"
                   plugin["url"] = f"https://raw.githubusercontent.com/{repo}/builds/lk21.cs3"
