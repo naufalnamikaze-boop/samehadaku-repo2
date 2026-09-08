@@ -7,7 +7,7 @@ plugins {
 version = 2
 
 android {
-    namespace = "com.example.dutamovie"
+    namespace = "com.example.Dutamovie"
     compileSdk = 35
 
     defaultConfig {
