@@ -1,4 +1,4 @@
-package com.example.dutamovie
+package com.example.Dutamovie
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
@@ -52,7 +52,7 @@ class Dutamovie : MainAPI() {
             val response = app.get(mainUrlJson).text
             val json = JSONObject(response)
 
-            val array = json.optJSONArray("dutamovie")
+            val array = json.optJSONArray("Dutamovie")
             val newUrl = array
                 ?.optString(0)
                 ?.removeSuffix("/")
