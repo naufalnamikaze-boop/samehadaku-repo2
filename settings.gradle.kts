@@ -19,4 +19,3 @@ dependencyResolutionManagement {
 rootProject.name = "MyCloudStreamRepo"
 include(":samehadaku")
 include(":kuramanime")
-include(":dutamovie")
