@@ -36,6 +36,7 @@ jobs:
         run: |
           ./gradlew samehadaku:make
           ./gradlew kuramanime:make
+          ./gradlew lk21:make
 
       - name: Generate Plugins JSON
         run: ./gradlew makePluginsJson
@@ -55,6 +56,7 @@ jobs:
           echo "=== Menyalin plugin ==="
           cp samehadaku/build/*.cs3 publish/
           cp kuramanime/build/*.cs3 publish/
+          cp lk21/build/*.cs3 publish/
 
           echo "=== Menyalin plugins.json hasil Gradle ==="
           cp build/plugins.json publish/
@@ -86,6 +88,13 @@ jobs:
                   plugin["url"] = (
                       f"https://raw.githubusercontent.com/"
                       f"{repo}/builds/kuramanime.cs3"
+
+              elif internal_name == "lk21":
+                  plugin["name"] = "LK21"
+                  plugin["internalName"] = "LK21"
+                  plugin["url"] = f"https://raw.githubusercontent.com/
+                      f"{repo}/builds/lk21.cs3"
+
                   )
 
           path.write_text(
