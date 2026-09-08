@@ -92,8 +92,7 @@ jobs:
               elif internal_name == "lk21":
                   plugin["name"] = "LK21"
                   plugin["internalName"] = "LK21"
-                  plugin["url"] = f"https://raw.githubusercontent.com/
-                      f"{repo}/builds/lk21.cs3"
+                  plugin["url"] = f"https://raw.githubusercontent.com/{repo}/builds/lk21.cs3"
 
                   )
 
