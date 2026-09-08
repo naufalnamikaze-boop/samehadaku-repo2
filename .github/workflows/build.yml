@@ -36,7 +36,6 @@ jobs:
         run: |
           ./gradlew samehadaku:make
           ./gradlew kuramanime:make
-          ./gradlew dutamovie:make
 
       - name: Generate Plugins JSON
         run: ./gradlew makePluginsJson
