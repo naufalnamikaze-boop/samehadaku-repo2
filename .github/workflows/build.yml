@@ -85,7 +85,7 @@ jobs:
                   plugin["internalName"] = "Kuramanime"
                   plugin["url"] = f"https://raw.githubusercontent.com/{repo}/builds/kuramanime.cs3"
 
-              if internal_name == "Dutamovie":
+              if internal_name == "dutamovie":
                   plugin["name"] = "Dutamovie"
                   plugin["internalName"] = "Dutamovie"
                   plugin["url"] = f"https://raw.githubusercontent.com/{repo}/builds/dutamovie.cs3"
