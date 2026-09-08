@@ -36,7 +36,7 @@ jobs:
         run: |
           ./gradlew samehadaku:make
           ./gradlew kuramanime:make
-          ./gradlew lk21:make
+          ./gradlew dutamovie:make
 
       - name: Generate Plugins JSON
         run: ./gradlew makePluginsJson
@@ -56,7 +56,7 @@ jobs:
           echo "=== Menyalin plugin ==="
           cp samehadaku/build/*.cs3 publish/
           cp kuramanime/build/*.cs3 publish/
-          cp lk21/build/*.cs3 publish/
+          cp dutamovie/build/*.cs3 publish/
 
           echo "=== Menyalin plugins.json hasil Gradle ==="
           cp build/plugins.json publish/
@@ -85,10 +85,10 @@ jobs:
                   plugin["internalName"] = "Kuramanime"
                   plugin["url"] = f"https://raw.githubusercontent.com/{repo}/builds/kuramanime.cs3"
 
-              if internal_name == "lk21":
-                  plugin["name"] = "LK21"
-                  plugin["internalName"] = "LK21"
-                  plugin["url"] = f"https://raw.githubusercontent.com/{repo}/builds/lk21.cs3"
+              if internal_name == "Dutamovie":
+                  plugin["name"] = "Dutamovie"
+                  plugin["internalName"] = "Dutamovie"
+                  plugin["url"] = f"https://raw.githubusercontent.com/{repo}/builds/dutamovie.cs3"
 
           path.write_text(
               json.dumps(data, indent=4, ensure_ascii=False) + "\n"
