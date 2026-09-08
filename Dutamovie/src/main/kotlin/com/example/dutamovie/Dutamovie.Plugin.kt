@@ -1,4 +1,4 @@
-package com.example.dutamovie
+package com.example.Dutamovie
 
 import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 import com.lagradost.cloudstream3.plugins.BasePlugin
