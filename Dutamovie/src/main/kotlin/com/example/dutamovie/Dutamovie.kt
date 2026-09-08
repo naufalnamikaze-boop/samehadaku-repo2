@@ -8,7 +8,7 @@ import java.net.URI
 
 class Dutamovie : MainAPI() {
 
-    override var mainUrl = "https://offshorebankservices.com"
+    override var mainUrl = "https://204.3.234.75/"
     override var name = "Dutamovie"
     override var lang = "id"
 
