@@ -109,35 +109,79 @@ class LK21 : MainAPI() {
     }
 
     override suspend fun search(
-        query: String
-    ): List<SearchResponse> {
+    query: String
+): List<SearchResponse> {
 
-        val encoded = URLEncoder.encode(
-            query,
-            StandardCharsets.UTF_8.toString()
+    val encoded = URLEncoder.encode(
+        query,
+        StandardCharsets.UTF_8.toString()
+    )
+
+    // Endpoint search lama yang masih digunakan
+    // oleh extension LK21 lainnya.
+    val url = "$mainUrl/search.php?s=$encoded"
+
+    val document = app.get(url).document
+
+    return document
+        .select(
+            "div.search-item, " +
+            ".search-item"
         )
+        .mapNotNull { item ->
 
-        val url =
-            "$mainUrl/search?s=$encoded"
+            val link = item.selectFirst(
+                "h3 > a, h3 a, a[href]"
+            ) ?: return@mapNotNull null
 
-        val document =
-            app.get(url).document
+            val href = link.attr("href")
+                .trim()
 
-        return document
-            .select(
-                "article, " +
-                ".movie-item, " +
-                ".film-item, " +
-                ".item, " +
-                ".card"
+            if (href.isBlank()) {
+                return@mapNotNull null
+            }
+
+            val title = item.selectFirst(
+                "h3 > a, h3 a"
             )
-            .mapNotNull {
-                it.toSearchResult()
+                ?.text()
+                ?.trim()
+                ?.takeIf {
+                    it.isNotBlank()
+                }
+                ?: link.text()
+                    .trim()
+                    .takeIf {
+                        it.isNotBlank()
+                    }
+                ?: return@mapNotNull null
+
+            val poster = item.selectFirst(
+                "img"
+            )?.let { img ->
+
+                img.attr("src")
+                    .ifEmpty {
+                        img.attr("data-src")
+                    }
+                    .ifEmpty {
+                        img.attr("data-lazy-src")
+                    }
+                    .trim()
             }
-            .distinctBy {
-                it.url
+
+            newMovieSearchResponse(
+                title,
+                fixUrl(href),
+                TvType.Movie
+            ) {
+                this.posterUrl = poster
             }
-    }
+        }
+        .distinctBy {
+            it.url
+        }
+}
 
     override suspend fun load(
         url: String
