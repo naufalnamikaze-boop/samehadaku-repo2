@@ -73,23 +73,37 @@ jobs:
           repo = "${{ github.repository }}"
 
           for plugin in data:
-              internal_name = plugin.get("internalName", "").lower()
+    internal_name = str(
+        plugin.get("internalName", "")
+    ).strip().lower()
 
-              if internal_name == "samehadaku":
-                  plugin["name"] = "Samehadaku"
-                  plugin["internalName"] = "Samehadaku"
-                  plugin["url"] = f"https://raw.githubusercontent.com/{repo}/builds/samehadaku.cs3"
+    name = str(
+        plugin.get("name", "")
+    ).strip().lower()
 
-              if internal_name == "kuramanime":
-                  plugin["name"] = "Kuramanime"
-                  plugin["internalName"] = "Kuramanime"
-                  plugin["url"] = f"https://raw.githubusercontent.com/{repo}/builds/kuramanime.cs3"
+              if internal_name == "samehadaku" or name == "samehadaku":
+        plugin["name"] = "Samehadaku"
+        plugin["internalName"] = "Samehadaku"
+        plugin["url"] = f"https://raw.githubusercontent.com/{repo}/builds/samehadaku.cs3"
 
-              if internal_name == "Dutamovie":
-                  plugin["name"] = "Dutamovie"
-                  plugin["internalName"] = "Dutamovie"
-                  plugin["url"] = f"https://raw.githubusercontent.com/{repo}/builds/Dutamovie.cs3"
+    if internal_name == "kuramanime" or name == "kuramanime":
+        plugin["name"] = "Kuramanime"
+        plugin["internalName"] = "Kuramanime"
+        plugin["url"] = f"https://raw.githubusercontent.com/{repo}/builds/kuramanime.cs3"
 
+    if internal_name == "dutamovie" or name == "dutamovie":
+        plugin["name"] = "Dutamovie"
+        plugin["internalName"] = "Dutamovie"
+        plugin["url"] = f"https://raw.githubusercontent.com/{repo}/builds/Dutamovie.cs3"
+
+print("=== FINAL PLUGINS ===")
+
+for plugin in data:
+    print(
+        plugin.get("name"),
+        "->",
+        plugin.get("url")
+    )
           path.write_text(
               json.dumps(data, indent=4, ensure_ascii=False) + "\n"
           )
