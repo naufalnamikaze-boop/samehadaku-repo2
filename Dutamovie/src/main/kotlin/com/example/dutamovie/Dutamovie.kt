@@ -438,21 +438,27 @@ class Dutamovie : MainAPI() {
             app.get(url).document
 
         val title =
-            document
-                .selectFirst(
-                    "h1.entry-title"
-                )
-                ?.text()
-                ?.substringBefore(
-                    "Season",
-                    ignoreCase = true
-                )
-                ?.substringBefore(
-                    "Episode",
-                    ignoreCase = true
-                )
-                ?.trim()
-                ?: "Unknown"
+    document
+        .selectFirst(
+            "h1.entry-title"
+        )
+        ?.text()
+        ?.replace(
+            Regex(
+                "\\s+Season.*$",
+                RegexOption.IGNORE_CASE
+            ),
+            ""
+        )
+        ?.replace(
+            Regex(
+                "\\s+Episode.*$",
+                RegexOption.IGNORE_CASE
+            ),
+            ""
+        )
+        ?.trim()
+        ?: "Unknown"
 
         /*
          * Cari poster dari area artikel/detail.
