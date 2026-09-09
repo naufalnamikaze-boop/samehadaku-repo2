@@ -553,206 +553,240 @@ class Dutamovie : MainAPI() {
      */
 
     override suspend fun loadLinks(
-        data: String,
-        isCasting: Boolean,
-        subtitleCallback:
-            (SubtitleFile) -> Unit,
-        callback:
-            (ExtractorLink) -> Unit
-    ): Boolean {
+    data: String,
+    isCasting: Boolean,
+    subtitleCallback: (SubtitleFile) -> Unit,
+    callback: (ExtractorLink) -> Unit
+): Boolean {
 
-        val candidates =
-            mutableListOf<String>()
+    val serverUrls =
+        mutableListOf<String>()
 
+    /*
+     * Ambil halaman film.
+     */
+    val mainDocument =
         try {
-
-            val document =
-                app.get(data).document
-
-            /*
-             * ----------------------------------------------------
-             * 1. IFRAME LANGSUNG
-             * ----------------------------------------------------
-             */
-            document
-                .select("iframe")
-                .forEach { iframe ->
-
-                    val src =
-                        when {
-
-                            iframe.hasAttr(
-                                "data-litespeed-src"
-                            ) ->
-                                iframe.attr(
-                                    "data-litespeed-src"
-                                )
-
-                            iframe.hasAttr(
-                                "data-src"
-                            ) ->
-                                iframe.attr(
-                                    "data-src"
-                                )
-
-                            else ->
-                                iframe.attr("src")
-                        }
-
-                    if (
-                        src.isNotBlank()
-                    ) {
-
-                        candidates.add(
-                            httpsify(src)
-                        )
-                    }
-                }
-
-            /*
-             * ----------------------------------------------------
-             * 2. SEMUA SERVER
-             * ----------------------------------------------------
-             */
-            document
-                .select("a")
-                .forEach { element ->
-
-                    val text =
-                        element
-                            .text()
-                            .trim()
-                            .lowercase()
-
-                    val href =
-                        element
-                            .attr("abs:href")
-                            .trim()
-
-                    if (
-                        text.startsWith(
-                            "server"
-                        ) &&
-                        href.isNotBlank()
-                    ) {
-
-                        candidates.add(
-                            href
-                        )
-                    }
-                }
-
+            app.get(data).document
         } catch (_: Exception) {
-        }
-
-        val uniqueCandidates =
-            candidates
-                .map {
-                    it.trim()
-                }
-                .filter {
-                    it.isNotBlank()
-                }
-                .distinct()
-
-        if (
-            uniqueCandidates.isEmpty()
-        ) {
             return false
         }
 
-        var found =
-            false
+    /*
+     * ------------------------------------------------------------
+     * 1. Coba iframe yang langsung ada di halaman film.
+     *
+     * Server 1 Dutamovie biasanya berada di sini.
+     * ------------------------------------------------------------
+     */
+    mainDocument
+        .select("iframe")
+        .forEach { iframe ->
+
+            val src =
+                when {
+
+                    iframe.hasAttr(
+                        "data-litespeed-src"
+                    ) ->
+                        iframe.attr(
+                            "data-litespeed-src"
+                        )
+
+                    iframe.hasAttr(
+                        "data-src"
+                    ) ->
+                        iframe.attr(
+                            "data-src"
+                        )
+
+                    else ->
+                        iframe.attr("src")
+                }
+
+            if (
+                src.isNotBlank()
+            ) {
+
+                serverUrls.add(
+                    httpsify(src.trim())
+                )
+            }
+        }
+
+    /*
+     * ------------------------------------------------------------
+     * 2. Ambil semua tombol Server.
+     *
+     * Contoh:
+     * Server 1
+     * Server 2
+     * Server 3
+     * dst.
+     * ------------------------------------------------------------
+     */
+    mainDocument
+        .select("a")
+        .forEach { element ->
+
+            val text =
+                element
+                    .text()
+                    .trim()
+                    .lowercase()
+
+            val href =
+                element
+                    .attr("abs:href")
+                    .trim()
+
+            if (
+                text.startsWith("server") &&
+                href.isNotBlank()
+            ) {
+
+                serverUrls.add(
+                    href
+                )
+            }
+        }
+
+    /*
+     * Hilangkan URL duplikat.
+     */
+    val uniqueServers =
+        serverUrls
+            .map {
+                it.trim()
+            }
+            .filter {
+                it.isNotBlank()
+            }
+            .distinct()
+
+    if (
+        uniqueServers.isEmpty()
+    ) {
+        return false
+    }
+
+    var found =
+        false
+
+    /*
+     * ------------------------------------------------------------
+     * 3. Coba setiap server.
+     * ------------------------------------------------------------
+     */
+    uniqueServers.forEach { serverUrl ->
 
         /*
-         * --------------------------------------------------------
-         * COBA EXTRACTOR CLOUDSTREAM
-         * --------------------------------------------------------
+         * A. Coba langsung sebagai extractor.
+         *
+         * PENTING:
+         * Jangan memberikan referer data secara paksa.
+         *
+         * Ini adalah pola yang sebelumnya membuat Voe
+         * berhasil di provider kita.
          */
-        for (
-            candidate in uniqueCandidates
-        ) {
+        try {
 
-            try {
-
+            val extractorLoaded =
                 loadExtractor(
-                    candidate,
-                    data,
+                    serverUrl,
                     subtitleCallback,
                     callback
                 )
 
-                found =
-                    true
+            if (
+                extractorLoaded
+            ) {
+                found = true
+            }
 
-            } catch (_: Exception) {
+        } catch (_: Exception) {
+        }
 
-                /*
-                 * Kalau candidate merupakan halaman
-                 * server, cari iframe di dalamnya.
-                 */
+        /*
+         * --------------------------------------------------------
+         * B. Kalau URL server merupakan halaman HTML,
+         *    buka halaman tersebut dan cari iframe.
+         * --------------------------------------------------------
+         */
+        try {
+
+            val serverDocument =
+                app.get(serverUrl).document
+
+            val iframeUrls =
+                serverDocument
+                    .select("iframe")
+                    .mapNotNull { iframe ->
+
+                        val src =
+                            when {
+
+                                iframe.hasAttr(
+                                    "data-litespeed-src"
+                                ) ->
+                                    iframe.attr(
+                                        "data-litespeed-src"
+                                    )
+
+                                iframe.hasAttr(
+                                    "data-src"
+                                ) ->
+                                    iframe.attr(
+                                        "data-src"
+                                    )
+
+                                else ->
+                                    iframe.attr(
+                                        "src"
+                                    )
+                            }
+
+                        if (
+                            src.isBlank()
+                        ) {
+                            null
+                        } else {
+                            httpsify(
+                                src.trim()
+                            )
+                        }
+                    }
+                    .distinct()
+
+            /*
+             * C. Kirim iframe ke extractor.
+             */
+            iframeUrls.forEach { iframeUrl ->
+
                 try {
 
-                    val serverDocument =
-                        app.get(
-                            candidate,
-                            referer = data
-                        ).document
+                    val extractorLoaded =
+                        loadExtractor(
+                            iframeUrl,
+                            serverUrl,
+                            subtitleCallback,
+                            callback
+                        )
 
-                    serverDocument
-                        .select("iframe")
-                        .forEach { iframe ->
-
-                            val src =
-                                when {
-
-                                    iframe.hasAttr(
-                                        "data-litespeed-src"
-                                    ) ->
-                                        iframe.attr(
-                                            "data-litespeed-src"
-                                        )
-
-                                    iframe.hasAttr(
-                                        "data-src"
-                                    ) ->
-                                        iframe.attr(
-                                            "data-src"
-                                        )
-
-                                    else ->
-                                        iframe.attr(
-                                            "src"
-                                        )
-                                }
-
-                            if (
-                                src.isBlank()
-                            ) {
-                                return@forEach
-                            }
-
-                            try {
-
-                                loadExtractor(
-                                    httpsify(src),
-                                    candidate,
-                                    subtitleCallback,
-                                    callback
-                                )
-
-                                found =
-                                    true
-
-                            } catch (_: Exception) {
-                            }
-                        }
+                    if (
+                        extractorLoaded
+                    ) {
+                        found = true
+                    }
 
                 } catch (_: Exception) {
                 }
             }
-        }
 
-        return found
+        } catch (_: Exception) {
+        }
+    }
+
+    return found
     }
 }
