@@ -2,8 +2,8 @@ package com.example.Dutamovie
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
-import org.jsoup.nodes.Element
 import org.json.JSONObject
+import org.jsoup.nodes.Element
 import java.net.URLEncoder
 
 class Dutamovie : MainAPI() {
@@ -62,29 +62,22 @@ class Dutamovie : MainAPI() {
                 directUrl = newUrl
             }
         } catch (_: Exception) {
-            // Pakai mainUrl fallback
+            // Gunakan mainUrl fallback
         }
     }
 
-    private fun Element.toSearchResult(): SearchResponse? {
+    private fun getPoster(element: Element): String? {
 
-        val title = selectFirst(
-            "h2.entry-title > a"
-        )
-            ?.text()
-            ?.trim()
-            ?: return null
+        val img = element
+            .closest("article")
+            ?.selectFirst("img")
+            ?: element
+                .parent()
+                ?.parent()
+                ?.selectFirst("img")
 
-        val href = selectFirst(
-            "h2.entry-title > a"
-        )
-            ?.attr("href")
-            ?.trim()
-            ?: return null
+        return img?.let {
 
-        val poster = selectFirst(
-            "a > img"
-        )?.let {
             when {
                 it.hasAttr("data-src") ->
                     it.attr("abs:data-src")
@@ -92,43 +85,45 @@ class Dutamovie : MainAPI() {
                 it.hasAttr("data-lazy-src") ->
                     it.attr("abs:data-lazy-src")
 
+                it.hasAttr("data-original") ->
+                    it.attr("abs:data-original")
+
                 it.hasAttr("srcset") ->
                     it.attr("abs:srcset")
-                        .substringBefore(" ")
+                        .substringBefore(",")
 
                 else ->
                     it.attr("abs:src")
             }
-        }
+        }?.trim()
+    }
 
-        val quality = select(
-            "div.gmr-qual, " +
-            "div.gmr-quality-item > a"
-        )
+    private fun Element.toSearchResult(): SearchResponse? {
+
+        val titleElement = selectFirst(
+            "h2.entry-title > a"
+        ) ?: return null
+
+        val title = titleElement
             .text()
             .trim()
-            .replace("-", "")
 
-        return if (quality.isBlank()) {
+        val href = titleElement
+            .attr("href")
+            .trim()
 
-            newTvSeriesSearchResponse(
-                title,
-                href,
-                TvType.TvSeries
-            ) {
-                posterUrl = poster
-            }
+        if (title.isBlank() || href.isBlank()) {
+            return null
+        }
 
-        } else {
+        val poster = getPoster(titleElement)
 
-            newMovieSearchResponse(
-                title,
-                href,
-                TvType.Movie
-            ) {
-                posterUrl = poster
-                addQuality(quality)
-            }
+        return newMovieSearchResponse(
+            title,
+            fixUrl(href),
+            TvType.Movie
+        ) {
+            posterUrl = poster
         }
     }
 
@@ -158,70 +153,51 @@ class Dutamovie : MainAPI() {
     }
 
     override suspend fun search(
-    query: String
-): List<SearchResponse> {
+        query: String
+    ): List<SearchResponse> {
 
-    loadMainUrl()
+        loadMainUrl()
 
-    val encodedQuery =
-        URLEncoder.encode(query, "UTF-8")
+        val encodedQuery =
+            URLEncoder.encode(query, "UTF-8")
 
-    val url =
-        "$mainUrl/?s=$encodedQuery&post_type[]=post&post_type[]=tv"
+        val url =
+            "$mainUrl/?s=$encodedQuery&post_type[]=post&post_type[]=tv"
 
-    val document =
-        app.get(url).document
+        val document =
+            app.get(url).document
 
-    return document
-        .select("h2.entry-title a")
-        .mapNotNull { element ->
+        return document
+            .select("h2.entry-title > a")
+            .mapNotNull { element ->
 
-            val title =
-                element.text()
-                    .trim()
+                val title =
+                    element.text().trim()
 
-            val href =
-                element.attr("href")
-                    .trim()
+                val href =
+                    element.attr("href").trim()
 
-            if (
-                title.isBlank() ||
-                href.isBlank()
-            ) {
-                null
-            } else {
-
-                newMovieSearchResponse(
-                    title,
-                    fixUrl(href),
-                    TvType.Movie
+                if (
+                    title.isBlank() ||
+                    href.isBlank()
                 ) {
-                    posterUrl =
-                        element
-                            .parent()
-                            ?.parent()
-                            ?.selectFirst("img")
-                            ?.let { img ->
+                    null
+                } else {
 
-                                when {
-                                    img.hasAttr("data-src") ->
-                                        img.attr("abs:data-src")
-
-                                    img.hasAttr("data-lazy-src") ->
-                                        img.attr("abs:data-lazy-src")
-
-                                    else ->
-                                        img.attr("abs:src")
-                                }
-                            }
+                    newMovieSearchResponse(
+                        title,
+                        fixUrl(href),
+                        TvType.Movie
+                    ) {
+                        posterUrl = getPoster(element)
+                    }
                 }
             }
-        }
-        .distinctBy {
-            it.url
-        }
+            .distinctBy {
+                it.url
+            }
     }
-    
+
     override suspend fun load(
         url: String
     ): LoadResponse {
@@ -245,20 +221,28 @@ class Dutamovie : MainAPI() {
                 ?: "Unknown"
 
         val poster =
-            document.selectFirst(
-                "figure.pull-left > img"
-            )?.let {
-                when {
-                    it.hasAttr("data-src") ->
-                        it.attr("abs:data-src")
+            document
+                .selectFirst(
+                    "h1.entry-title"
+                )
+                ?.closest("article")
+                ?.selectFirst("img")
+                ?.let {
 
-                    it.hasAttr("data-lazy-src") ->
-                        it.attr("abs:data-lazy-src")
+                    when {
+                        it.hasAttr("data-src") ->
+                            it.attr("abs:data-src")
 
-                    else ->
-                        it.attr("abs:src")
+                        it.hasAttr("data-lazy-src") ->
+                            it.attr("abs:data-lazy-src")
+
+                        it.hasAttr("data-original") ->
+                            it.attr("abs:data-original")
+
+                        else ->
+                            it.attr("abs:src")
+                    }
                 }
-            }
 
         val description =
             document.selectFirst(
@@ -269,8 +253,7 @@ class Dutamovie : MainAPI() {
 
         val year =
             document.select(
-                "div.gmr-moviedata " +
-                "strong:contains(Year:) > a"
+                "div.gmr-moviedata strong:contains(Year:) a"
             )
                 .text()
                 .trim()
@@ -290,8 +273,7 @@ class Dutamovie : MainAPI() {
 
         val rating =
             document.selectFirst(
-                "div.gmr-meta-rating " +
-                "span[itemprop=ratingValue]"
+                "div.gmr-meta-rating span[itemprop=ratingValue]"
             )
                 ?.text()
                 ?.trim()
@@ -306,6 +288,7 @@ class Dutamovie : MainAPI() {
             this.year = year
             plot = description
             this.tags = tags
+
             score = Score.from10(
                 rating?.toDoubleOrNull()
             )
@@ -313,57 +296,192 @@ class Dutamovie : MainAPI() {
     }
 
     override suspend fun loadLinks(
-    data: String,
-    isCasting: Boolean,
-    subtitleCallback: (SubtitleFile) -> Unit,
-    callback: (ExtractorLink) -> Unit
-): Boolean {
+        data: String,
+        isCasting: Boolean,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
 
-    val document =
-        app.get(data).document
+        val document =
+            app.get(data).document
 
-    val iframes =
+        val serverUrls = mutableListOf<String>()
+
+        /*
+         * Ambil semua tombol Server.
+         * Contoh halaman Mongoose:
+         *
+         * Server 1 -> ?player=1
+         * Server 2 -> ?player=2
+         * Server 3 -> ?player=3
+         * dst.
+         */
         document
-            .select("iframe")
-            .mapNotNull { iframe ->
+            .select("a")
+            .forEach { element ->
 
-                val src =
-                    when {
-                        iframe.hasAttr("data-litespeed-src") ->
-                            iframe.attr("data-litespeed-src")
+                val text =
+                    element.text()
+                        .trim()
+                        .lowercase()
 
-                        iframe.hasAttr("data-src") ->
-                            iframe.attr("data-src")
+                if (text.startsWith("server")) {
 
-                        else ->
-                            iframe.attr("src")
+                    val href =
+                        element.attr("abs:href")
+                            .trim()
+
+                    if (href.isNotBlank()) {
+                        serverUrls.add(href)
                     }
-
-                src
-                    .takeIf { it.isNotBlank() }
-                    ?.let { httpsify(it) }
+                }
             }
-            .distinct()
 
-    if (iframes.isEmpty()) {
-        return false
-    }
+        /*
+         * Kalau tombol Server tidak ditemukan,
+         * tetap coba iframe yang sedang aktif.
+         */
+        if (serverUrls.isEmpty()) {
 
-    iframes.forEach { iframe ->
+            document
+                .select("iframe")
+                .forEach { iframe ->
 
-        try {
+                    val src =
+                        when {
 
-            loadExtractor(
-                iframe,
-                data,
-                subtitleCallback,
-                callback
-            )
+                            iframe.hasAttr(
+                                "data-litespeed-src"
+                            ) ->
+                                iframe.attr(
+                                    "data-litespeed-src"
+                                )
 
-        } catch (_: Exception) {
+                            iframe.hasAttr(
+                                "data-src"
+                            ) ->
+                                iframe.attr(
+                                    "data-src"
+                                )
+
+                            else ->
+                                iframe.attr("src")
+                        }
+
+                    if (src.isNotBlank()) {
+                        serverUrls.add(
+                            httpsify(src)
+                        )
+                    }
+                }
         }
-    }
 
-    return true
+        val uniqueServers =
+            serverUrls.distinct()
+
+        if (uniqueServers.isEmpty()) {
+            return false
+        }
+
+        var found = false
+
+        /*
+         * Coba setiap Server.
+         */
+        uniqueServers.forEach { serverUrl ->
+
+            try {
+
+                val serverDocument =
+                    app.get(serverUrl).document
+
+                val iframes =
+                    serverDocument
+                        .select("iframe")
+                        .mapNotNull { iframe ->
+
+                            val src =
+                                when {
+
+                                    iframe.hasAttr(
+                                        "data-litespeed-src"
+                                    ) ->
+                                        iframe.attr(
+                                            "data-litespeed-src"
+                                        )
+
+                                    iframe.hasAttr(
+                                        "data-src"
+                                    ) ->
+                                        iframe.attr(
+                                            "data-src"
+                                        )
+
+                                    else ->
+                                        iframe.attr(
+                                            "src"
+                                        )
+                                }
+
+                            src
+                                .takeIf {
+                                    it.isNotBlank()
+                                }
+                                ?.let {
+                                    httpsify(it)
+                                }
+                        }
+                        .distinct()
+
+                /*
+                 * Kalau halaman server langsung berupa
+                 * iframe, coba extractor CloudStream.
+                 */
+                iframes.forEach { iframeUrl ->
+
+                    try {
+
+                        loadExtractor(
+                            iframeUrl,
+                            serverUrl,
+                            subtitleCallback,
+                            callback
+                        )
+
+                        found = true
+
+                    } catch (_: Exception) {
+                    }
+                }
+
+                /*
+                 * Beberapa server bisa langsung berupa
+                 * halaman video tanpa iframe.
+                 */
+                if (
+                    iframes.isEmpty() &&
+                    serverUrl.isNotBlank()
+                ) {
+
+                    try {
+
+                        loadExtractor(
+                            serverUrl,
+                            data,
+                            subtitleCallback,
+                            callback
+                        )
+
+                        found = true
+
+                    } catch (_: Exception) {
+                    }
+                }
+
+            } catch (_: Exception) {
+            }
+        }
+
+        return found
     }
 }
