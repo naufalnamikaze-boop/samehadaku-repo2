@@ -5,6 +5,7 @@ import com.lagradost.cloudstream3.utils.*
 import org.jsoup.nodes.Element
 import org.json.JSONObject
 import java.net.URI
+import java.net.URLEncoder
 
 class Dutamovie : MainAPI() {
 
@@ -158,27 +159,70 @@ class Dutamovie : MainAPI() {
     }
 
     override suspend fun search(
-        query: String
-    ): List<SearchResponse> {
+    query: String
+): List<SearchResponse> {
 
-        loadMainUrl()
+    loadMainUrl()
 
-        val url =
-            "$mainUrl/?s=$query&post_type[]=post&post_type[]=tv"
+    val encodedQuery =
+        URLEncoder.encode(query, "UTF-8")
 
-        val document =
-            app.get(url).document
+    val url =
+        "$mainUrl/?s=$encodedQuery&post_type[]=post&post_type[]=tv"
 
-        return document
-            .select("article.item-infinite")
-            .mapNotNull {
-                it.toSearchResult()
+    val document =
+        app.get(url).document
+
+    return document
+        .select("h2.entry-title a")
+        .mapNotNull { element ->
+
+            val title =
+                element.text()
+                    .trim()
+
+            val href =
+                element.attr("href")
+                    .trim()
+
+            if (
+                title.isBlank() ||
+                href.isBlank()
+            ) {
+                null
+            } else {
+
+                newMovieSearchResponse(
+                    title,
+                    fixUrl(href),
+                    TvType.Movie
+                ) {
+                    posterUrl =
+                        element
+                            .parent()
+                            ?.parent()
+                            ?.selectFirst("img")
+                            ?.let { img ->
+
+                                when {
+                                    img.hasAttr("data-src") ->
+                                        img.attr("abs:data-src")
+
+                                    img.hasAttr("data-lazy-src") ->
+                                        img.attr("abs:data-lazy-src")
+
+                                    else ->
+                                        img.attr("abs:src")
+                                }
+                            }
+                }
             }
-            .distinctBy {
-                it.url
-            }
+        }
+        .distinctBy {
+            it.url
+        }
     }
-
+    
     override suspend fun load(
         url: String
     ): LoadResponse {
@@ -273,122 +317,56 @@ class Dutamovie : MainAPI() {
     }
 
     override suspend fun loadLinks(
-        data: String,
-        isCasting: Boolean,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit
-    ): Boolean {
+    data: String,
+    isCasting: Boolean,
+    subtitleCallback: (SubtitleFile) -> Unit,
+    callback: (ExtractorLink) -> Unit
+): Boolean {
 
-        loadMainUrl()
+    val document =
+        app.get(data).document
 
-        val document =
-            app.get(data).document
+    val iframes =
+        document
+            .select("iframe")
+            .mapNotNull { iframe ->
 
-        val id =
-            document.selectFirst(
-                "div#muvipro_player_content_id"
+                val src =
+                    when {
+                        iframe.hasAttr("data-litespeed-src") ->
+                            iframe.attr("data-litespeed-src")
+
+                        iframe.hasAttr("data-src") ->
+                            iframe.attr("data-src")
+
+                        else ->
+                            iframe.attr("src")
+                    }
+
+                src
+                    .takeIf { it.isNotBlank() }
+                    ?.let { httpsify(it) }
+            }
+            .distinct()
+
+    if (iframes.isEmpty()) {
+        return false
+    }
+
+    iframes.forEach { iframe ->
+
+        try {
+
+            loadExtractor(
+                iframe,
+                data,
+                subtitleCallback,
+                callback
             )
-                ?.attr("data-id")
 
-        if (id.isNullOrBlank()) {
-
-            document
-                .select(
-                    "ul.muvipro-player-tabs li a"
-                )
-                .forEach { element ->
-
-                    try {
-
-                        val iframePage =
-                            app.get(
-                                fixUrl(
-                                    element.attr("href")
-                                )
-                            ).document
-
-                        val iframe =
-                            iframePage
-                                .selectFirst(
-                                    "div.gmr-embed-responsive iframe"
-                                )
-                                ?.let {
-                                    it.attr("data-litespeed-src")
-                                        .ifBlank {
-                                            it.attr("src")
-                                        }
-                                }
-
-                        if (!iframe.isNullOrBlank()) {
-
-                            loadExtractor(
-                                httpsify(iframe),
-                                "$mainUrl/",
-                                subtitleCallback,
-                                callback
-                            )
-                        }
-
-                    } catch (_: Exception) {
-                    }
-                }
-
-        } else {
-
-            document
-                .select(
-                    "div.tab-content-ajax"
-                )
-                .forEach { element ->
-
-                    try {
-
-                        val tab =
-                            element.attr("id")
-
-                        val iframe =
-                            app.post(
-                                "${directUrl ?: mainUrl}" +
-                                    "/wp-admin/admin-ajax.php",
-                                data = mapOf(
-                                    "action" to
-                                        "muvipro_player_content",
-
-                                    "tab" to
-                                        tab,
-
-                                    "post_id" to
-                                        id
-                                )
-                            )
-                                .document
-                                .selectFirst("iframe")
-                                ?.attr("src")
-
-                        if (!iframe.isNullOrBlank()) {
-
-                            loadExtractor(
-                                httpsify(iframe),
-                                "$mainUrl/",
-                                subtitleCallback,
-                                callback
-                            )
-                        }
-
-                    } catch (_: Exception) {
-                    }
-                }
-        }
-
-        return true
-    }
-
-    private fun getBaseUrl(
-        url: String
-    ): String {
-
-        return URI(url).let {
-            "${it.scheme}://${it.host}"
+        } catch (_: Exception) {
         }
     }
-}
+
+    return true
+    }
