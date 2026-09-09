@@ -66,37 +66,70 @@ class Dutamovie : MainAPI() {
         }
     }
 
-    private fun getPoster(element: Element): String? {
+    private fun getPoster(
+    element: Element,
+    title: String? = null
+): String? {
 
-        val img = element
-            .closest("article")
-            ?.selectFirst("img")
-            ?: element
-                .parent()
-                ?.parent()
-                ?.selectFirst("img")
+    fun imageUrl(img: Element): String? {
 
-        return img?.let {
+        val url = when {
+            img.hasAttr("data-src") ->
+                img.attr("abs:data-src")
 
-            when {
-                it.hasAttr("data-src") ->
-                    it.attr("abs:data-src")
+            img.hasAttr("data-lazy-src") ->
+                img.attr("abs:data-lazy-src")
 
-                it.hasAttr("data-lazy-src") ->
-                    it.attr("abs:data-lazy-src")
+            img.hasAttr("data-original") ->
+                img.attr("abs:data-original")
 
-                it.hasAttr("data-original") ->
-                    it.attr("abs:data-original")
+            img.hasAttr("srcset") ->
+                img.attr("abs:srcset")
+                    .substringBefore(",")
 
-                it.hasAttr("srcset") ->
-                    it.attr("abs:srcset")
-                        .substringBefore(",")
+            else ->
+                img.attr("abs:src")
+        }
 
-                else ->
-                    it.attr("abs:src")
-            }
-        }?.trim()
+        return url
+            .trim()
+            .takeIf { it.isNotBlank() }
     }
+
+    var current: Element? = element
+
+    repeat(8) {
+
+        current
+            ?.selectFirst("img")
+            ?.let { img ->
+                imageUrl(img)?.let { return it }
+            }
+
+        current = current?.parent()
+    }
+
+    if (!title.isNullOrBlank()) {
+
+        val titleLower =
+            title.lowercase()
+
+        element
+            .ownerDocument()
+            ?.select("img")
+            ?.firstOrNull {
+
+                it.attr("alt")
+                    .lowercase()
+                    .contains(titleLower)
+            }
+            ?.let { img ->
+                imageUrl(img)?.let { return it }
+            }
+    }
+
+    return null
+}
 
     private fun Element.toSearchResult(): SearchResponse? {
 
@@ -116,14 +149,20 @@ class Dutamovie : MainAPI() {
             return null
         }
 
-        val poster = getPoster(titleElement)
+        val poster = getPoster(
+    titleElement,
+    title
+)
 
         return newMovieSearchResponse(
             title,
             fixUrl(href),
             TvType.Movie
         ) {
-            posterUrl = poster
+            posterUrl = getPoster(
+    element,
+    title
+)
         }
     }
 
@@ -189,7 +228,10 @@ class Dutamovie : MainAPI() {
                         fixUrl(href),
                         TvType.Movie
                     ) {
-                        posterUrl = getPoster(element)
+                        posterUrl = getPoster(
+    element,
+    title
+)
                     }
                 }
             }
@@ -296,85 +338,122 @@ class Dutamovie : MainAPI() {
     }
 
     override suspend fun loadLinks(
-        data: String,
-        isCasting: Boolean,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit
-    ): Boolean {
+    data: String,
+    isCasting: Boolean,
+    subtitleCallback: (SubtitleFile) -> Unit,
+    callback: (ExtractorLink) -> Unit
+): Boolean {
 
-        val document =
-            app.get(data).document
+    val serverUrls =
+        mutableListOf<String>()
 
-        val serverUrls = mutableListOf<String>()
+    val mainDocument =
+        app.get(data).document
 
-        /*
-         * Ambil semua tombol Server.
-         * Contoh halaman Mongoose:
-         *
-         * Server 1 -> ?player=1
-         * Server 2 -> ?player=2
-         * Server 3 -> ?player=3
-         * dst.
-         */
-        document
-            .select("a")
-            .forEach { element ->
+    /*
+     * Ambil URL semua tombol Server.
+     */
+    mainDocument
+        .select("a")
+        .forEach { element ->
 
-                val text =
-                    element.text()
+            val text =
+                element.text()
+                    .trim()
+                    .lowercase()
+
+            if (text.startsWith("server")) {
+
+                val href =
+                    element
+                        .attr("abs:href")
                         .trim()
-                        .lowercase()
 
-                if (text.startsWith("server")) {
-
-                    val href =
-                        element.attr("abs:href")
-                            .trim()
-
-                    if (href.isNotBlank()) {
-                        serverUrls.add(href)
-                    }
+                if (href.isNotBlank()) {
+                    serverUrls.add(href)
                 }
             }
+        }
 
-        /*
-         * Kalau tombol Server tidak ditemukan,
-         * tetap coba iframe yang sedang aktif.
-         */
-        if (serverUrls.isEmpty()) {
+    /*
+     * Kalau server tidak ditemukan,
+     * gunakan halaman utama sebagai fallback.
+     */
+    if (serverUrls.isEmpty()) {
+        serverUrls.add(data)
+    }
 
-            document
-                .select("iframe")
-                .forEach { iframe ->
+    var found = false
 
-                    val src =
-                        when {
+    serverUrls
+        .distinct()
+        .forEach { serverUrl ->
 
-                            iframe.hasAttr(
-                                "data-litespeed-src"
-                            ) ->
-                                iframe.attr(
-                                    "data-litespeed-src"
-                                )
+            try {
 
-                            iframe.hasAttr(
-                                "data-src"
-                            ) ->
-                                iframe.attr(
-                                    "data-src"
-                                )
+                val serverDocument =
+                    app.get(serverUrl).document
 
-                            else ->
-                                iframe.attr("src")
+                val iframeUrls =
+                    serverDocument
+                        .select("iframe")
+                        .mapNotNull { iframe ->
+
+                            val src =
+                                when {
+
+                                    iframe.hasAttr(
+                                        "data-litespeed-src"
+                                    ) ->
+                                        iframe.attr(
+                                            "data-litespeed-src"
+                                        )
+
+                                    iframe.hasAttr(
+                                        "data-src"
+                                    ) ->
+                                        iframe.attr(
+                                            "data-src"
+                                        )
+
+                                    else ->
+                                        iframe.attr("src")
+                                }
+
+                            src
+                                .trim()
+                                .takeIf {
+                                    it.isNotBlank()
+                                }
+                                ?.let {
+                                    httpsify(it)
+                                }
                         }
+                        .distinct()
 
-                    if (src.isNotBlank()) {
-                        serverUrls.add(
-                            httpsify(src)
+                iframeUrls.forEach { iframeUrl ->
+
+                    try {
+
+                        loadExtractor(
+                            iframeUrl,
+                            serverUrl,
+                            subtitleCallback,
+                            callback
                         )
+
+                        found = true
+
+                    } catch (_: Exception) {
                     }
                 }
+
+            } catch (_: Exception) {
+            }
         }
+
+    return found
+}
 
         val uniqueServers =
             serverUrls.distinct()
