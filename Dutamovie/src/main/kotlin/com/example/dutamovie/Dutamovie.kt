@@ -2,7 +2,6 @@ package com.example.Dutamovie
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
-import org.json.JSONObject
 import org.jsoup.nodes.Element
 import java.net.URLEncoder
 
@@ -19,11 +18,6 @@ class Dutamovie : MainAPI() {
         TvType.Movie,
         TvType.TvSeries
     )
-
-    private val mainUrlJson =
-        "https://raw.githubusercontent.com/Asm0d3usX/CloudX/builds/Website.json"
-
-    private var directUrl: String? = null
 
     override val mainPage = mainPageOf(
         "category/box-office/page/%d/" to "Box Office",
@@ -45,72 +39,100 @@ class Dutamovie : MainAPI() {
         "country/china/page/%d/" to "China"
     )
 
-    private suspend fun loadMainUrl() {
+    /*
+     * ============================================================
+     * IMAGE / POSTER
+     * ============================================================
+     */
 
-        if (directUrl != null) {
-            return
+    private fun cleanImageUrl(
+        url: String?
+    ): String? {
+
+        if (url.isNullOrBlank()) {
+            return null
         }
 
-        try {
+        var result =
+            url.trim()
 
-            val response =
-                app.get(mainUrlJson).text
+        if (
+            result.startsWith("//")
+        ) {
+            result =
+                "https:$result"
+        }
 
-            val json =
-                JSONObject(response)
+        if (
+            result.startsWith("data:")
+        ) {
+            return null
+        }
 
-            val array =
-                json.optJSONArray("Dutamovie")
+        /*
+         * srcset biasanya:
+         *
+         * image-300.jpg 300w,
+         * image-600.jpg 600w
+         *
+         * Kita ambil URL pertama.
+         */
+        result =
+            result
+                .substringBefore(",")
+                .substringBefore(" ")
+                .trim()
 
-            val newUrl =
-                array
-                    ?.optString(0)
-                    ?.removeSuffix("/")
-
-            if (!newUrl.isNullOrBlank()) {
-
-                mainUrl = newUrl
-                directUrl = newUrl
+        return result
+            .takeIf {
+                it.startsWith("http://") ||
+                it.startsWith("https://")
             }
-
-        } catch (_: Exception) {
-            // Gunakan mainUrl bawaan
-        }
     }
 
-    private fun getImageUrl(
+    private fun getImageFromElement(
         img: Element
     ): String? {
 
-        val url = when {
+        /*
+         * Prioritas atribut lazy-load.
+         */
 
-            img.hasAttr("data-src") ->
-                img.attr("abs:data-src")
+        val attributes =
+            listOf(
+                "data-src",
+                "data-lazy-src",
+                "data-original",
+                "data-url",
+                "data-image",
+                "data-lazy-srcset",
+                "srcset",
+                "src"
+            )
 
-            img.hasAttr("data-lazy-src") ->
-                img.attr("abs:data-lazy-src")
+        for (
+            attribute in attributes
+        ) {
 
-            img.hasAttr("data-original") ->
-                img.attr("abs:data-original")
+            if (
+                img.hasAttr(attribute)
+            ) {
 
-            img.hasAttr("data-lazy-srcset") ->
-                img.attr("abs:data-lazy-srcset")
-                    .substringBefore(",")
+                val value =
+                    img.attr(attribute)
 
-            img.hasAttr("srcset") ->
-                img.attr("abs:srcset")
-                    .substringBefore(",")
+                val image =
+                    cleanImageUrl(value)
 
-            else ->
-                img.attr("abs:src")
+                if (
+                    image != null
+                ) {
+                    return image
+                }
+            }
         }
 
-        return url
-            .trim()
-            .takeIf {
-                it.isNotBlank() &&
-                !it.startsWith("data:")
-            }
+        return null
     }
 
     private fun getPoster(
@@ -118,31 +140,76 @@ class Dutamovie : MainAPI() {
     ): String? {
 
         /*
-         * Kalau element adalah article,
-         * cari gambar langsung di dalamnya.
+         * 1. Cari <img> di dalam element.
          */
         element
             .selectFirst("img")
             ?.let {
-                getImageUrl(it)?.let { poster ->
-                    return poster
-                }
+
+                getImageFromElement(it)
+                    ?.let { poster ->
+                        return poster
+                    }
             }
 
         /*
-         * Kalau element adalah link judul,
-         * naik ke parent sampai menemukan article.
+         * 2. Naik ke parent.
+         *
+         * Berguna kalau element yang kita terima
+         * adalah <a> judul film.
          */
-        var current: Element? =
-            element
+        var current:
+            Element? = element
 
-        repeat(8) {
+        repeat(10) {
 
             current
                 ?.selectFirst("img")
                 ?.let {
-                    getImageUrl(it)?.let { poster ->
-                        return poster
+
+                    getImageFromElement(it)
+                        ?.let { poster ->
+                            return poster
+                        }
+                }
+
+            current =
+                current?.parent()
+        }
+
+        /*
+         * 3. Coba background-image.
+         */
+        current =
+            element
+
+        repeat(10) {
+
+            current
+                ?.select("[style]")
+                ?.forEach { styled ->
+
+                    val style =
+                        styled.attr("style")
+
+                    val match =
+                        Regex(
+                            """url\(['"]?([^'")]+)"""
+                        )
+                            .find(style)
+
+                    val image =
+                        match
+                            ?.groupValues
+                            ?.getOrNull(1)
+                            ?.let {
+                                cleanImageUrl(it)
+                            }
+
+                    if (
+                        image != null
+                    ) {
+                        return image
                     }
                 }
 
@@ -150,16 +217,41 @@ class Dutamovie : MainAPI() {
                 current?.parent()
         }
 
+        /*
+         * 4. Fallback ke OpenGraph image.
+         */
+        element
+            .ownerDocument()
+            ?.selectFirst(
+                "meta[property=og:image]"
+            )
+            ?.attr("content")
+            ?.let {
+                cleanImageUrl(it)
+                    ?.let { poster ->
+                        return poster
+                    }
+            }
+
         return null
     }
+
+    /*
+     * ============================================================
+     * SEARCH / HOME MAPPER
+     * ============================================================
+     */
 
     private fun Element.toSearchResult():
         SearchResponse? {
 
         val titleElement =
             selectFirst(
-                "h2.entry-title > a"
+                "h2.entry-title a"
             )
+                ?: selectFirst(
+                    "h2 a"
+                )
                 ?: return null
 
         val title =
@@ -179,6 +271,10 @@ class Dutamovie : MainAPI() {
             return null
         }
 
+        /*
+         * Ambil poster dari seluruh card,
+         * bukan hanya dari <a> judul.
+         */
         val poster =
             getPoster(this)
 
@@ -187,16 +283,22 @@ class Dutamovie : MainAPI() {
             fixUrl(href),
             TvType.Movie
         ) {
-            posterUrl = poster
+
+            posterUrl =
+                poster
         }
     }
+
+    /*
+     * ============================================================
+     * HOME
+     * ============================================================
+     */
 
     override suspend fun getMainPage(
         page: Int,
         request: MainPageRequest
     ): HomePageResponse {
-
-        loadMainUrl()
 
         val url =
             "$mainUrl/${request.data.format(page)}"
@@ -204,12 +306,36 @@ class Dutamovie : MainAPI() {
         val document =
             app.get(url).document
 
-        val results =
+        /*
+         * Situs menggunakan article.item
+         * untuk kartu film.
+         */
+        var results =
             document
                 .select("article.item")
                 .mapNotNull {
                     it.toSearchResult()
                 }
+
+        /*
+         * Fallback kalau struktur HTML berubah.
+         */
+        if (
+            results.isEmpty()
+        ) {
+
+            results =
+                document
+                    .select(
+                        "h2.entry-title"
+                    )
+                    .mapNotNull { heading ->
+
+                        heading
+                            .parent()
+                            ?.toSearchResult()
+                    }
+            }
 
         return newHomePageResponse(
             request.name,
@@ -217,11 +343,15 @@ class Dutamovie : MainAPI() {
         )
     }
 
+    /*
+     * ============================================================
+     * SEARCH
+     * ============================================================
+     */
+
     override suspend fun search(
         query: String
     ): List<SearchResponse> {
-
-        loadMainUrl()
 
         val encodedQuery =
             URLEncoder.encode(
@@ -230,32 +360,82 @@ class Dutamovie : MainAPI() {
             )
 
         val url =
-            "$mainUrl/?s=$encodedQuery&post_type[]=post&post_type[]=tv"
+            "$mainUrl/?s=$encodedQuery" +
+            "&post_type[]=post" +
+            "&post_type[]=tv"
 
         val document =
             app.get(url).document
 
-        return document
-            .select("article.item")
-            .mapNotNull {
-                it.toSearchResult()
-            }
+        var results =
+            document
+                .select("article.item")
+                .mapNotNull {
+                    it.toSearchResult()
+                }
+
+        /*
+         * Fallback selector.
+         */
+        if (
+            results.isEmpty()
+        ) {
+
+            results =
+                document
+                    .select(
+                        "h2.entry-title a"
+                    )
+                    .mapNotNull { element ->
+
+                        val title =
+                            element
+                                .text()
+                                .trim()
+
+                        val href =
+                            element
+                                .attr("href")
+                                .trim()
+
+                        if (
+                            title.isBlank() ||
+                            href.isBlank()
+                        ) {
+                            null
+                        } else {
+
+                            newMovieSearchResponse(
+                                title,
+                                fixUrl(href),
+                                TvType.Movie
+                            ) {
+
+                                posterUrl =
+                                    getPoster(element)
+                            }
+                        }
+                    }
+        }
+
+        return results
             .distinctBy {
                 it.url
             }
     }
 
+    /*
+     * ============================================================
+     * DETAIL
+     * ============================================================
+     */
+
     override suspend fun load(
         url: String
     ): LoadResponse {
 
-        loadMainUrl()
-
-        val response =
-            app.get(url)
-
         val document =
-            response.document
+            app.get(url).document
 
         val title =
             document
@@ -263,11 +443,20 @@ class Dutamovie : MainAPI() {
                     "h1.entry-title"
                 )
                 ?.text()
-                ?.substringBefore("Season")
-                ?.substringBefore("Episode")
+                ?.substringBefore(
+                    "Season",
+                    ignoreCase = true
+                )
+                ?.substringBefore(
+                    "Episode",
+                    ignoreCase = true
+                )
                 ?.trim()
                 ?: "Unknown"
 
+        /*
+         * Cari poster dari area artikel/detail.
+         */
         val poster =
             document
                 .selectFirst(
@@ -276,11 +465,19 @@ class Dutamovie : MainAPI() {
                 ?.let {
                     getPoster(it)
                 }
+                ?: document
+                    .selectFirst(
+                        "meta[property=og:image]"
+                    )
+                    ?.attr("content")
+                    ?.let {
+                        cleanImageUrl(it)
+                    }
 
         val description =
             document
                 .selectFirst(
-                    "div[itemprop=description] > p"
+                    "div[itemprop=description]"
                 )
                 ?.text()
                 ?.trim()
@@ -289,7 +486,7 @@ class Dutamovie : MainAPI() {
             document
                 .select(
                     "div.gmr-moviedata " +
-                    "strong:contains(Year:) > a"
+                    "strong:contains(Year:) a"
                 )
                 .text()
                 .trim()
@@ -324,7 +521,8 @@ class Dutamovie : MainAPI() {
             url
         ) {
 
-            posterUrl = poster
+            posterUrl =
+                poster
 
             this.year =
                 year
@@ -342,25 +540,35 @@ class Dutamovie : MainAPI() {
         }
     }
 
+    /*
+     * ============================================================
+     * VIDEO LINKS
+     * ============================================================
+     */
+
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit
+        subtitleCallback:
+            (SubtitleFile) -> Unit,
+        callback:
+            (ExtractorLink) -> Unit
     ): Boolean {
 
         val candidates =
             mutableListOf<String>()
 
-        /*
-         * 1. Ambil iframe yang sedang aktif.
-         */
         try {
 
-            val mainDocument =
+            val document =
                 app.get(data).document
 
-            mainDocument
+            /*
+             * ----------------------------------------------------
+             * 1. IFRAME LANGSUNG
+             * ----------------------------------------------------
+             */
+            document
                 .select("iframe")
                 .forEach { iframe ->
 
@@ -382,12 +590,12 @@ class Dutamovie : MainAPI() {
                                 )
 
                             else ->
-                                iframe.attr(
-                                    "src"
-                                )
+                                iframe.attr("src")
                         }
 
-                    if (src.isNotBlank()) {
+                    if (
+                        src.isNotBlank()
+                    ) {
 
                         candidates.add(
                             httpsify(src)
@@ -396,40 +604,11 @@ class Dutamovie : MainAPI() {
                 }
 
             /*
-             * 2. Ambil semua Server 1, Server 2,
-             *    Server 3, dst.
+             * ----------------------------------------------------
+             * 2. SEMUA SERVER
+             * ----------------------------------------------------
              */
-            mainDocument
-                .select("a")
-                .forEach { element ->
-
-                    val text =
-                        element
-                            .text()
-                            .trim()
-                            .lowercase()
-
-                    val href =
-                        element
-                            .attr("abs:href")
-                            .trim()
-
-                    if (
-                        text.startsWith("server") &&
-                        href.isNotBlank()
-                    ) {
-
-                        candidates.add(
-                            href
-                        )
-                    }
-                }
-
-            /*
-             * 3. Ambil Link Download yang tersedia
-             *    sebagai fallback player.
-             */
-            mainDocument
+            document
                 .select("a")
                 .forEach { element ->
 
@@ -446,7 +625,7 @@ class Dutamovie : MainAPI() {
 
                     if (
                         text.startsWith(
-                            "link download"
+                            "server"
                         ) &&
                         href.isNotBlank()
                     ) {
@@ -480,88 +659,93 @@ class Dutamovie : MainAPI() {
             false
 
         /*
-         * Coba setiap kandidat.
+         * --------------------------------------------------------
+         * COBA EXTRACTOR CLOUDSTREAM
+         * --------------------------------------------------------
          */
-        uniqueCandidates
-            .forEach { candidate ->
+        for (
+            candidate in uniqueCandidates
+        ) {
 
+            try {
+
+                loadExtractor(
+                    candidate,
+                    data,
+                    subtitleCallback,
+                    callback
+                )
+
+                found =
+                    true
+
+            } catch (_: Exception) {
+
+                /*
+                 * Kalau candidate merupakan halaman
+                 * server, cari iframe di dalamnya.
+                 */
                 try {
 
-                    /*
-                     * Kalau kandidat langsung merupakan
-                     * player/extractor, coba langsung.
-                     */
-                    loadExtractor(
-                        candidate,
-                        data,
-                        subtitleCallback,
-                        callback
-                    )
+                    val serverDocument =
+                        app.get(
+                            candidate,
+                            referer = data
+                        ).document
 
-                    found = true
+                    serverDocument
+                        .select("iframe")
+                        .forEach { iframe ->
 
-                } catch (_: Exception) {
+                            val src =
+                                when {
 
-                    /*
-                     * Kalau kandidat adalah halaman
-                     * server, cari iframe di dalamnya.
-                     */
-                    try {
-
-                        val serverDocument =
-                            app.get(candidate).document
-
-                        serverDocument
-                            .select("iframe")
-                            .forEach { iframe ->
-
-                                val src =
-                                    when {
-
-                                        iframe.hasAttr(
+                                    iframe.hasAttr(
+                                        "data-litespeed-src"
+                                    ) ->
+                                        iframe.attr(
                                             "data-litespeed-src"
-                                        ) ->
-                                            iframe.attr(
-                                                "data-litespeed-src"
-                                            )
-
-                                        iframe.hasAttr(
-                                            "data-src"
-                                        ) ->
-                                            iframe.attr(
-                                                "data-src"
-                                            )
-
-                                        else ->
-                                            iframe.attr(
-                                                "src"
-                                            )
-                                    }
-
-                                if (
-                                    src.isNotBlank()
-                                ) {
-
-                                    try {
-
-                                        loadExtractor(
-                                            httpsify(src),
-                                            candidate,
-                                            subtitleCallback,
-                                            callback
                                         )
 
-                                        found = true
+                                    iframe.hasAttr(
+                                        "data-src"
+                                    ) ->
+                                        iframe.attr(
+                                            "data-src"
+                                        )
 
-                                    } catch (_: Exception) {
-                                    }
+                                    else ->
+                                        iframe.attr(
+                                            "src"
+                                        )
                                 }
+
+                            if (
+                                src.isBlank()
+                            ) {
+                                return@forEach
                             }
 
-                    } catch (_: Exception) {
-                    }
+                            try {
+
+                                loadExtractor(
+                                    httpsify(src),
+                                    candidate,
+                                    subtitleCallback,
+                                    callback
+                                )
+
+                                found =
+                                    true
+
+                            } catch (_: Exception) {
+                            }
+                        }
+
+                } catch (_: Exception) {
                 }
             }
+        }
 
         return found
     }
