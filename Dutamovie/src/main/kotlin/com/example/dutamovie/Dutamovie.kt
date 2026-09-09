@@ -370,3 +370,4 @@ class Dutamovie : MainAPI() {
 
     return true
     }
+}
