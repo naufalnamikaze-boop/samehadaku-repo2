@@ -4,7 +4,6 @@ import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
 import org.jsoup.nodes.Element
 import org.json.JSONObject
-import java.net.URI
 import java.net.URLEncoder
 
 class Dutamovie : MainAPI() {
@@ -234,9 +233,6 @@ class Dutamovie : MainAPI() {
 
         val document =
             response.document
-
-        directUrl =
-            getBaseUrl(response.url)
 
         val title =
             document.selectFirst(
