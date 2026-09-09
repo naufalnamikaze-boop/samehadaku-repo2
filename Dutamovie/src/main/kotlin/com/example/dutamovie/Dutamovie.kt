@@ -552,118 +552,6 @@ class Dutamovie : MainAPI() {
      * ============================================================
      */
 
-    override suspend fun loadLinks(
-    data: String,
-    isCasting: Boolean,
-    subtitleCallback: (SubtitleFile) -> Unit,
-    callback: (ExtractorLink) -> Unit
-): Boolean {
-
-    val serverUrls =
-        mutableListOf<String>()
-
-    /*
-     * Ambil halaman film.
-     */
-    val mainDocument =
-        try {
-            app.get(data).document
-        } catch (_: Exception) {
-            return false
-        }
-
-    /*
-     * ------------------------------------------------------------
-     * 1. Coba iframe yang langsung ada di halaman film.
-     *
-     * Server 1 Dutamovie biasanya berada di sini.
-     * ------------------------------------------------------------
-     */
-    mainDocument
-        .select("iframe")
-        .forEach { iframe ->
-
-            val src =
-                when {
-
-                    iframe.hasAttr(
-                        "data-litespeed-src"
-                    ) ->
-                        iframe.attr(
-                            "data-litespeed-src"
-                        )
-
-                    iframe.hasAttr(
-                        "data-src"
-                    ) ->
-                        iframe.attr(
-                            "data-src"
-                        )
-
-                    else ->
-                        iframe.attr("src")
-                }
-
-            if (
-                src.isNotBlank()
-            ) {
-
-                serverUrls.add(
-                    httpsify(src.trim())
-                )
-            }
-        }
-
-    /*
-     * ------------------------------------------------------------
-     * 2. Ambil semua tombol Server.
-     *
-     * Contoh:
-     * Server 1
-     * Server 2
-     * Server 3
-     * dst.
-     * ------------------------------------------------------------
-     */
-    mainDocument
-        .select("a")
-        .forEach { element ->
-
-            val text =
-                element
-                    .text()
-                    .trim()
-                    .lowercase()
-
-            val href =
-                element
-                    .attr("abs:href")
-                    .trim()
-
-            if (
-                text.startsWith("server") &&
-                href.isNotBlank()
-            ) {
-
-                serverUrls.add(
-                    href
-                )
-            }
-        }
-
-    /*
-     * Hilangkan URL duplikat.
-     */
-    val uniqueServers =
-        serverUrls
-            .map {
-                it.trim()
-            }
-            .filter {
-                it.isNotBlank()
-            }
-            .distinct()
-
 override suspend fun loadLinks(
     data: String,
     isCasting: Boolean,
@@ -672,16 +560,6 @@ override suspend fun loadLinks(
 ): Boolean {
 
     var found = false
-
-    /*
-     * Dutamovie:
-     *
-     * Server 1 -> halaman utama
-     * Server 2 -> ?player=2
-     * Server 3 -> ?player=3
-     * ...
-     * Server 7 -> ?player=7
-     */
 
     for (player in 1..7) {
 
@@ -738,45 +616,32 @@ override suspend fun loadLinks(
                     }
                     .distinct()
 
-            /*
-             * Tidak ada iframe pada player ini.
-             * Lanjut ke player berikutnya.
-             */
             if (iframeUrls.isEmpty()) {
                 continue
             }
 
-            /*
-             * Kirim setiap iframe ke extractor CloudStream.
-             */
             for (iframeUrl in iframeUrls) {
 
                 try {
 
-                    val extractorFound =
-                        loadExtractor(
-                            iframeUrl,
-                            playerUrl,
-                            subtitleCallback,
-                            callback
-                        )
+                    loadExtractor(
+                        iframeUrl,
+                        playerUrl,
+                        subtitleCallback
+                    ) { link ->
 
-                    if (extractorFound) {
                         found = true
+
+                        callback(link)
                     }
 
                 } catch (_: Exception) {
-                    /*
-                     * Satu extractor gagal tidak boleh
-                     * menghentikan server lainnya.
-                     */
+                    // lanjut ke server berikutnya
                 }
             }
 
         } catch (_: Exception) {
-            /*
-             * Player gagal dibuka -> lanjut player berikutnya.
-             */
+            // lanjut ke player berikutnya
         }
     }
 
