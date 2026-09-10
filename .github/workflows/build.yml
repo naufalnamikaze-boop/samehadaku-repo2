@@ -61,7 +61,10 @@ jobs:
           echo "=== Menyalin plugins.json hasil Gradle ==="
           cp build/plugins.json publish/
 
-                    echo "=== Memperbaiki URL plugins.json ==="
+          echo "=== Menyalin Website.json ==="
+          cp Website.json publish/
+
+          echo "=== Memperbaiki URL plugins.json ==="
           python3 - <<'PY'
           import json
           from pathlib import Path
