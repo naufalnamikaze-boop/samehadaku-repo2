@@ -1,15 +1,15 @@
-# CloudStream repository Samehadaku
+# CloudStream repository 
 
 Template latihan untuk membuat repository/extension CloudStream.
 
 ## Build
 Linux/macOS:
-`./gradlew samehadaku:make`
+`./gradlew name:make`
 
 Windows:
-`gradlew.bat samehadaku:make`
+`gradlew.bat name:make`
 
 Struktur:
-- `samehadaku/` = extension/provider
+- `name/` = extension/provider
 - `repo.json` = metadata repository
 - `.github/workflows/` = contoh automation build
