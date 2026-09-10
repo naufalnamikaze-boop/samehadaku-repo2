@@ -49,10 +49,7 @@ class Dutamovie : MainAPI() {
     }
 
     override val hasMainPage = true
-
-    override val hasMainPage = true
     override val hasDownloadSupport = false
-
     override val supportedTypes = setOf(
         TvType.Movie,
         TvType.TvSeries
