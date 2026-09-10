@@ -2,6 +2,7 @@ package com.example.Dutamovie
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
+import org.json.JSONObject
 import org.jsoup.nodes.Element
 import java.net.URLEncoder
 
@@ -10,6 +11,44 @@ class Dutamovie : MainAPI() {
     override var mainUrl = "https://actors-pictures.com"
     override var name = "Dutamovie"
     override var lang = "id"
+
+    private val websiteConfigUrl =
+        "https://raw.githubusercontent.com/naufalnamikaze-boop/samehadaku-repo2/builds/Website.json"
+
+    private suspend fun updateWebsiteUrl() {
+
+        try {
+
+            val json =
+                app.get(websiteConfigUrl)
+                    .text
+                    .let {
+                        JSONObject(it)
+                    }
+
+            val urls =
+                json
+                    .getJSONArray("dutamovie")
+
+            if (urls.length() > 0) {
+
+                val newUrl =
+                    urls
+                        .getString(0)
+                        .trim()
+                        .removeSuffix("/")
+
+                if (newUrl.isNotBlank()) {
+                    mainUrl = newUrl
+                }
+            }
+
+        } catch (_: Exception) {
+            // Gunakan mainUrl bawaan jika config gagal.
+        }
+    }
+
+    override val hasMainPage = true
 
     override val hasMainPage = true
     override val hasDownloadSupport = false
@@ -300,6 +339,8 @@ class Dutamovie : MainAPI() {
         request: MainPageRequest
     ): HomePageResponse {
 
+        updateWebsiteUrl()
+
         val url =
             "$mainUrl/${request.data.format(page)}"
 
@@ -352,6 +393,8 @@ class Dutamovie : MainAPI() {
     override suspend fun search(
         query: String
     ): List<SearchResponse> {
+
+        updateWebsiteUrl()
 
         val encodedQuery =
             URLEncoder.encode(
@@ -433,6 +476,8 @@ class Dutamovie : MainAPI() {
     override suspend fun load(
         url: String
     ): LoadResponse {
+
+        updateWebsiteUrl()
 
         val document =
             app.get(url).document
