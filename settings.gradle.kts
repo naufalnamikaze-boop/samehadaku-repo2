@@ -20,3 +20,4 @@ rootProject.name = "MyCloudStreamRepo"
 include(":samehadaku")
 include(":kuramanime")
 include(":Dutamovie")
+include(":moviebox")
