@@ -189,11 +189,9 @@ class Moviebox : MainAPI() {
                                 episode = episode,
                                 detailPath = subject?.detailPath
                             ).toJson()
-                        ) {
-                            this.season = season.se
-                            this.episode = episode
-                        }
-                    }
+                            season = season.se
+                            episode = episode
+                    )
                 }
                 ?.flatten()
                 ?: emptyList()
