@@ -67,35 +67,51 @@ class Moviebox : MainAPI() {
         )
     }
 
-    override suspend fun quickSearch(
-        query: String
-    ): List<SearchResponse> = search(query)
-
     override suspend fun search(
-        query: String
-    ): List<SearchResponse> {
+    query: String
+): List<SearchResponse> {
 
-        val body = mapOf(
-            "keyword" to query,
-            "page" to "1",
-            "perPage" to "20",
-            "subjectType" to "0"
+    val body = """
+        {
+            "keyword": "${query.replace("\"", "\\\"")}",
+            "page": 1,
+            "perPage": 20,
+            "subjectType": 0
+        }
+    """.trimIndent()
+        .toRequestBody(
+            RequestBodyTypes.JSON.toMediaTypeOrNull()
         )
-            .toJson()
-            .toRequestBody(
-                RequestBodyTypes.JSON.toMediaTypeOrNull()
-            )
 
-        return app.post(
-            "$mainUrl/wefeed-h5-bff/web/subject/search",
-            requestBody = body
-        )
-            .parsedSafe<Media>()
-            ?.data
-            ?.items
-            ?.map { it.toSearchResponse(this) }
-            ?: throw ErrorLoadingException()
-    }
+    val response = app.post(
+        "$mainUrl/wefeed-h5-bff/web/subject/search",
+        requestBody = body
+    )
+
+    val result = response.parsedSafe<Media>()
+
+    return result
+        ?.data
+        ?.items
+        ?.mapNotNull { item ->
+            val id = item.subjectId ?: return@mapNotNull null
+            val title = item.title ?: return@mapNotNull null
+
+            newMovieSearchResponse(
+                title,
+                "$mainUrl/$id",
+                if (item.subjectType == 1) {
+                    TvType.Movie
+                } else {
+                    TvType.TvSeries
+                },
+                false
+            ) {
+                posterUrl = item.cover?.url
+            }
+        }
+        ?: emptyList()
+}
 
     override suspend fun load(
     url: String
