@@ -629,19 +629,11 @@ override suspend fun loadLinks(
                         val src =
                             when {
 
-                                iframe.hasAttr(
-                                    "data-litespeed-src"
-                                ) ->
-                                    iframe.attr(
-                                        "data-litespeed-src"
-                                    )
+                                iframe.hasAttr("data-litespeed-src") ->
+                                    iframe.attr("data-litespeed-src")
 
-                                iframe.hasAttr(
-                                    "data-src"
-                                ) ->
-                                    iframe.attr(
-                                        "data-src"
-                                    )
+                                iframe.hasAttr("data-src") ->
+                                    iframe.attr("data-src")
 
                                 else ->
                                     iframe.attr("src")
@@ -658,6 +650,10 @@ override suspend fun loadLinks(
                     }
                     .distinct()
 
+            println(
+                "DUTAMOVIE PLAYER $player -> $iframeUrls"
+            )
+
             if (iframeUrls.isEmpty()) {
                 continue
             }
@@ -666,27 +662,41 @@ override suspend fun loadLinks(
 
                 try {
 
-                    loadExtractor(
-                        iframeUrl,
-                        playerUrl,
-                        subtitleCallback
-                    ) { link ->
+                    val extractorFound =
+                        loadExtractor(
+                            iframeUrl,
+                            playerUrl,
+                            subtitleCallback
+                        ) { link ->
 
-                        found = true
+                            found = true
+                            callback(link)
+                        }
 
-                        callback(link)
-                    }
+                    println(
+                        "DUTAMOVIE PLAYER $player -> " +
+                        "$iframeUrl -> extractor=$extractorFound"
+                    )
 
-                } catch (_: Exception) {
-                    // lanjut ke server berikutnya
+                } catch (e: Exception) {
+
+                    println(
+                        "DUTAMOVIE ERROR PLAYER $player -> " +
+                        "$iframeUrl -> ${e.message}"
+                    )
                 }
             }
 
-        } catch (_: Exception) {
-            // lanjut ke player berikutnya
+        } catch (e: Exception) {
+
+            println(
+                "DUTAMOVIE ERROR PLAYER $player -> " +
+                "${e.message}"
+            )
         }
     }
 
     return found
+}
 }
 }
