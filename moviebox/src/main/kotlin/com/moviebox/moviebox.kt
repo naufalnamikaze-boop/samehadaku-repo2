@@ -71,14 +71,13 @@ class Moviebox : MainAPI() {
     query: String
 ): List<SearchResponse> {
 
-    val body = """
-        {
-            "keyword": "${query.replace("\"", "\\\"")}",
-            "page": 1,
-            "perPage": 20,
-            "subjectType": 0
-        }
-    """.trimIndent()
+    val body = mapOf(
+        "keyword" to query,
+        "page" to 1,
+        "perPage" to 20,
+        "subjectType" to 0
+    )
+        .toJson()
         .toRequestBody(
             RequestBodyTypes.JSON.toMediaTypeOrNull()
         )
@@ -88,29 +87,16 @@ class Moviebox : MainAPI() {
         requestBody = body
     )
 
-    val result = response.parsedSafe<Media>()
+    val raw = response.text
 
-    return result
-        ?.data
-        ?.items
-        ?.mapNotNull { item ->
-            val id = item.subjectId ?: return@mapNotNull null
-            val title = item.title ?: return@mapNotNull null
-
-            newMovieSearchResponse(
-                title,
-                "$mainUrl/$id",
-                if (item.subjectType == 1) {
-                    TvType.Movie
-                } else {
-                    TvType.TvSeries
-                },
-                false
-            ) {
-                posterUrl = item.cover?.url
-            }
-        }
-        ?: emptyList()
+    return listOf(
+        newMovieSearchResponse(
+            "DEBUG RESPONSE: ${raw.take(500)}",
+            "$mainUrl/debug",
+            TvType.Movie,
+            false
+        )
+    )
 }
 
     override suspend fun load(
