@@ -83,9 +83,9 @@ class Moviebox : MainAPI() {
         )
 
     val response = app.post(
-        "$mainUrl/wefeed-h5-bff/web/subject/search",
-        requestBody = body
-    )
+    "$apiUrl/wefeed-h5-bff/web/subject/search",
+    requestBody = body
+)
 
     val raw = response.text
 
