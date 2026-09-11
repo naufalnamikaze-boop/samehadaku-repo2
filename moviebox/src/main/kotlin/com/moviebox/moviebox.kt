@@ -208,7 +208,6 @@ class Moviebox : MainAPI() {
                 year = year
                 plot = description
                 this.tags = tags
-                this.rating = rating
                 this.actors = actors
                 this.recommendations = recommendations
 
@@ -233,7 +232,6 @@ class Moviebox : MainAPI() {
                 year = year
                 plot = description
                 this.tags = tags
-                this.rating = rating
                 this.actors = actors
                 this.recommendations = recommendations
 
