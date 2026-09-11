@@ -198,11 +198,11 @@ class Moviebox : MainAPI() {
             episodes
         ) {
             posterUrl = poster
-            year = year
-            plot = description
-            tags = tags
-            actors = actors
-            recommendations = recommendations
+            this.year = year
+            this.plot = description
+            this.tags = tags
+            this.actors = actors
+            this.recommendations = recommendations
 
             addTrailer(
                 trailer,
@@ -221,12 +221,12 @@ class Moviebox : MainAPI() {
                 detailPath = subject?.detailPath
             ).toJson()
         ) {
-            posterUrl = poster
-            year = year
-            plot = description
-            tags = tags
-            actors = actors
-            recommendations = recommendations
+            this.posterUrl = poster
+            this.year = year
+            this.plot = description
+            this.tags = tags
+            this actors = actors
+            this.recommendations = recommendations
 
             addTrailer(
                 trailer,
