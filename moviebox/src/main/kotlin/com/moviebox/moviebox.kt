@@ -98,147 +98,142 @@ class Moviebox : MainAPI() {
     }
 
     override suspend fun load(
-        url: String
-    ): LoadResponse {
+    url: String
+): LoadResponse {
 
-        val id = url.substringAfterLast("/")
+    val id = url.substringAfterLast("/")
 
-        val doc = app.get(
-            "$mainUrl/wefeed-h5-bff/web/subject/detail?subjectId=$id"
-        )
-            .parsedSafe<MediaDetail>()
-            ?.data
+    val doc = app.get(
+        "$mainUrl/wefeed-h5-bff/web/subject/detail?subjectId=$id"
+    )
+        .parsedSafe<MediaDetail>()
+        ?.data
 
-        val subject = doc?.subject
+    val subject = doc?.subject
 
-        val title = subject?.title ?: ""
+    val title = subject?.title ?: ""
+    val poster = subject?.cover?.url
 
-        val poster = subject?.cover?.url
+    val tags = subject?.genre
+        ?.split(",")
+        ?.map { it.trim() }
 
-        val tags = subject?.genre
-            ?.split(",")
-            ?.map { it.trim() }
+    val year = subject?.releaseDate
+        ?.substringBefore("-")
+        ?.toIntOrNull()
 
-        val year = subject?.releaseDate
-            ?.substringBefore("-")
-            ?.toIntOrNull()
-
-        val tvType =
-            if (subject?.subjectType == 2) {
-                TvType.TvSeries
-            } else {
-                TvType.Movie
-            }
-
-        val description = subject?.description
-
-        val trailer = subject
-            ?.trailer
-            ?.videoAddress
-            ?.url
-
-        val rating = subject
-            ?.imdbRatingValue
-            .toRatingInt()
-
-        val actors = doc
-            ?.stars
-            ?.mapNotNull { cast ->
-                ActorData(
-                    Actor(
-                        cast.name
-                            ?: return@mapNotNull null,
-                        cast.avatarUrl
-                    ),
-                    roleString = cast.character
-                )
-            }
-            ?.distinctBy { it.actor }
-
-        val recommendations = app.get(
-            "$mainUrl/wefeed-h5-bff/web/subject/detail-rec" +
-            "?subjectId=$id&page=1&perPage=12"
-        )
-            .parsedSafe<Media>()
-            ?.data
-            ?.items
-            ?.map { it.toSearchResponse(this) }
-
-        return if (tvType == TvType.TvSeries) {
-
-            val episodes = doc
-                ?.resource
-                ?.seasons
-                ?.map { season ->
-
-                    val episodeNumbers =
-                        if (season.allEp.isNullOrEmpty()) {
-                            1..(season.maxEp ?: 0)
-                        } else {
-                            season.allEp
-                                .split(",")
-                                .mapNotNull { it.toIntOrNull() }
-                        }
-
-                    episodeNumbers.map { episode ->
-
-                        newEpisode(
-                            LoadData(
-                                id = id,
-                                season = season.se,
-                                episode = episode,
-                                detailPath = subject?.detailPath
-                            ).toJson()
-                            season = season.se
-                            episode = episode
-                    )
-                }
-                ?.flatten()
-                ?: emptyList()
-
-            newTvSeriesLoadResponse(
-                title,
-                url,
-                TvType.TvSeries,
-                episodes
-            ) {
-                posterUrl = poster
-                year = year
-                plot = description
-                this.tags = tags
-                this.actors = actors
-                this.recommendations = recommendations
-
-                addTrailer(
-                    trailer,
-                    addRaw = true
-                )
-            }
-
+    val tvType =
+        if (subject?.subjectType == 2) {
+            TvType.TvSeries
         } else {
-
-            newMovieLoadResponse(
-                title,
-                url,
-                TvType.Movie,
-                LoadData(
-                    id = id,
-                    detailPath = subject?.detailPath
-                ).toJson()
-            ) {
-                posterUrl = poster
-                year = year
-                plot = description
-                this.tags = tags
-                this.actors = actors
-                this.recommendations = recommendations
-
-                addTrailer(
-                    trailer,
-                    addRaw = true
-                )
-            }
+            TvType.Movie
         }
+
+    val description = subject?.description
+
+    val trailer = subject
+        ?.trailer
+        ?.videoAddress
+        ?.url
+
+    val actors = doc
+        ?.stars
+        ?.mapNotNull { cast ->
+            ActorData(
+                Actor(
+                    cast.name ?: return@mapNotNull null,
+                    cast.avatarUrl
+                ),
+                roleString = cast.character
+            )
+        }
+        ?.distinctBy { it.actor }
+
+    val recommendations = app.get(
+        "$mainUrl/wefeed-h5-bff/web/subject/detail-rec" +
+        "?subjectId=$id&page=1&perPage=12"
+    )
+        .parsedSafe<Media>()
+        ?.data
+        ?.items
+        ?.map { it.toSearchResponse(this) }
+
+    return if (tvType == TvType.TvSeries) {
+
+        val episodes = doc
+            ?.resource
+            ?.seasons
+            ?.flatMap { season ->
+
+                val episodeNumbers =
+                    if (season.allEp.isNullOrEmpty()) {
+                        1..(season.maxEp ?: 0)
+                    } else {
+                        season.allEp
+                            .split(",")
+                            .mapNotNull { it.toIntOrNull() }
+                    }
+
+                episodeNumbers.map { episode ->
+
+                    newEpisode(
+                        LoadData(
+                            id = id,
+                            season = season.se,
+                            episode = episode,
+                            detailPath = subject?.detailPath
+                        ).toJson()
+                    ) {
+                        this.season = season.se
+                        this.episode = episode
+                    }
+                }
+            }
+            ?: emptyList()
+
+        newTvSeriesLoadResponse(
+            title,
+            url,
+            TvType.TvSeries,
+            episodes
+        ) {
+            posterUrl = poster
+            year = year
+            plot = description
+            tags = tags
+            actors = actors
+            recommendations = recommendations
+
+            addTrailer(
+                trailer,
+                addRaw = true
+            )
+        }
+
+    } else {
+
+        newMovieLoadResponse(
+            title,
+            url,
+            TvType.Movie,
+            LoadData(
+                id = id,
+                detailPath = subject?.detailPath
+            ).toJson()
+        ) {
+            posterUrl = poster
+            year = year
+            plot = description
+            tags = tags
+            actors = actors
+            recommendations = recommendations
+
+            addTrailer(
+                trailer,
+                addRaw = true
+            )
+        }
+    }
     }
 
     override suspend fun loadLinks(
