@@ -201,7 +201,6 @@ class Moviebox : MainAPI() {
             this.year = year
             this.plot = description
             this.tags = tags
-            this.actors = actors
             this.recommendations = recommendations
 
             addTrailer(
@@ -225,7 +224,6 @@ class Moviebox : MainAPI() {
             this.year = year
             this.plot = description
             this.tags = tags
-            this actors = actors
             this.recommendations = recommendations
 
             addTrailer(
