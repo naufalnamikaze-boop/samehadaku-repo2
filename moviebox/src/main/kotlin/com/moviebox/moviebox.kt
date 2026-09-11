@@ -78,7 +78,7 @@ class Moviebox : MainAPI() {
         val body = mapOf(
             "keyword" to query,
             "page" to "1",
-            "perPage" to "0",
+            "perPage" to "20",
             "subjectType" to "0"
         )
             .toJson()
