@@ -91,12 +91,10 @@ class Moviebox : MainAPI() {
         .replace("\n", " ")
         .replace("\r", " ")
 
-    val chunks = raw.chunked(180)
-
-    return chunks.mapIndexed { index, chunk ->
+    return raw.chunked(20).mapIndexed { index, chunk ->
         newMovieSearchResponse(
-            "DEBUG ${index + 1}/${chunks.size}: $chunk",
-            "$mainUrl/debug${index + 1}",
+            "$index: $chunk",
+            "$mainUrl/debug$index",
             TvType.Movie,
             false
         )
