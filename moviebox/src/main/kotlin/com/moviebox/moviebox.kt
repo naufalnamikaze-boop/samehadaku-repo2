@@ -193,18 +193,22 @@ override suspend fun search(
         // langsung di hasil Search CloudStream.
 
         val error =
-            "${e.javaClass.simpleName}: ${e.message}"
+    "${e.javaClass.simpleName}: ${e.message}"
 
-        error
-            .chunked(80)
-            .mapIndexed { index, chunk ->
-
-                newMovieSearchResponse(
-                    "ERROR $index: $chunk",
-                    "$mainUrl/debug-search-error-$index",
-                    TvType.Movie,
-                    false
-                )
+listOf(
+    newMovieSearchResponse(
+        "TYPE: ${e.javaClass.simpleName}",
+        "$mainUrl/debug-error-type",
+        TvType.Movie,
+        false
+    ),
+    newMovieSearchResponse(
+        "MSG: ${e.message ?: "null"}",
+        "$mainUrl/debug-error-msg",
+        TvType.Movie,
+        false
+    )
+)
             }
     }
 }
