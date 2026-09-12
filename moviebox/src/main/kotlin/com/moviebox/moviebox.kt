@@ -83,20 +83,24 @@ class Moviebox : MainAPI() {
         )
 
     val response = app.post(
-    "$apiUrl/wefeed-h5-bff/web/subject/search",
-    requestBody = body
-)
+        "$apiUrl/wefeed-h5-bff/web/subject/search",
+        requestBody = body
+    )
 
     val raw = response.text
+        .replace("\n", " ")
+        .replace("\r", " ")
 
-    return listOf(
+    val chunks = raw.chunked(180)
+
+    return chunks.mapIndexed { index, chunk ->
         newMovieSearchResponse(
-            "DEBUG RESPONSE: ${raw.take(500)}",
-            "$mainUrl/debug",
+            "DEBUG ${index + 1}/${chunks.size}: $chunk",
+            "$mainUrl/debug${index + 1}",
             TvType.Movie,
             false
         )
-    )
+    }
 }
 
     override suspend fun load(
