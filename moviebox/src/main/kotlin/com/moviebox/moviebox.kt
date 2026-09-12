@@ -88,10 +88,6 @@ override suspend fun search(
 
         val clientToken = "$timestamp,$md5"
 
-        // =====================================================
-        // 1. Guest session
-        // =====================================================
-
         val bootstrap = app.get(
             "$apiUrl/wefeed-mobile-bff/tab-operating" +
                     "?host=api.inmoviebox.com" +
@@ -111,48 +107,21 @@ override suspend fun search(
 
         val xUser = bootstrap.headers["x-user"]
 
-        if (xUser.isNullOrBlank()) {
-            throw ErrorLoadingException(
-                "Guest session gagal: x-user tidak ditemukan"
-            )
-        }
-
-        // =====================================================
-        // 2. Search
-        // =====================================================
-
-        val body = mapOf(
-            "keyword" to query,
-            "type" to 0,
-            "page" to 1,
-            "pageSize" to 20
-        ).toJson().toRequestBody(
-            RequestBodyTypes.JSON.toMediaTypeOrNull()
-        )
-
-        val response = app.post(
-            "$apiUrl/wefeed-mobile-bff/subject-api/search",
-            headers = mapOf(
-                "Accept" to "application/json",
-                "Content-Type" to "application/json",
-                "User-Agent" to
-                        "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
-                "X-M-Version" to "4.0.02",
-                "X-Client-Token" to clientToken,
-                "X-Client-Info" to
-                        """{"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI"}""",
-                "Authorization" to "Bearer $xUser"
+        // DEBUG: jangan lanjut ke Search dulu
+        return listOf(
+            newMovieSearchResponse(
+                "BOOTSTRAP HTTP ${bootstrap.code}",
+                "$mainUrl/debug-bootstrap",
+                TvType.Movie,
+                false
             ),
-            requestBody = body
+            newMovieSearchResponse(
+                "X-USER = ${if (xUser.isNullOrBlank()) "KOSONG" else "ADA"}",
+                "$mainUrl/debug-xuser",
+                TvType.Movie,
+                false
+            )
         )
-
-        response.parsedSafe<Media>()
-            ?.data
-            ?.items
-            ?.map {
-                it.toSearchResponse(this)
-            }
-            ?: emptyList()
 
     } catch (e: Exception) {
 
@@ -161,14 +130,14 @@ override suspend fun search(
 
         listOf(
             newMovieSearchResponse(
-                "TYPE: ${e.javaClass.simpleName}",
+                "ERROR TYPE: ${e.javaClass.simpleName}",
                 "$mainUrl/debug-error-type",
                 TvType.Movie,
                 false
             ),
             newMovieSearchResponse(
-                "MSG: $error",
-                "$mainUrl/debug-error-msg",
+                "ERROR: ${error.take(120)}",
+                "$mainUrl/debug-error",
                 TvType.Movie,
                 false
             )
