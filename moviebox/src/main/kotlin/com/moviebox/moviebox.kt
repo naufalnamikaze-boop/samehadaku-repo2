@@ -67,15 +67,19 @@ class Moviebox : MainAPI() {
         )
     }
 
-    override suspend fun search(
+    override suspend fun quickSearch(
+    query: String
+): List<SearchResponse> = search(query)
+
+override suspend fun search(
     query: String
 ): List<SearchResponse> {
 
     val body = mapOf(
         "keyword" to query,
+        "type" to 0,
         "page" to 1,
-        "perPage" to 20,
-        "subjectType" to 1
+        "pageSize" to 20
     )
         .toJson()
         .toRequestBody(
@@ -83,7 +87,7 @@ class Moviebox : MainAPI() {
         )
 
     val response = app.post(
-        "$apiUrl/wefeed-h5-bff/web/subject/search",
+        "https://api.inmoviebox.com/wefeed-mobile-bff/subject-api/search",
         requestBody = body
     )
 
