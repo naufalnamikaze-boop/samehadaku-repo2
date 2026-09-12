@@ -107,16 +107,15 @@ override suspend fun search(
 
         val xUser = bootstrap.headers["x-user"]
 
-        // DEBUG: jangan lanjut ke Search dulu
-        return listOf(
+        listOf(
             newMovieSearchResponse(
-                "BOOTSTRAP HTTP ${bootstrap.code}",
-                "$mainUrl/debug-bootstrap",
+                "HTTP ${bootstrap.code}",
+                "$mainUrl/debug-http",
                 TvType.Movie,
                 false
             ),
             newMovieSearchResponse(
-                "X-USER = ${if (xUser.isNullOrBlank()) "KOSONG" else "ADA"}",
+                "XUSER ${if (xUser.isNullOrBlank()) "NULL" else "OK"}",
                 "$mainUrl/debug-xuser",
                 TvType.Movie,
                 false
@@ -125,26 +124,34 @@ override suspend fun search(
 
     } catch (e: Exception) {
 
-        val error =
-            "${e.javaClass.simpleName}: ${e.message}"
+        val message = e.message ?: "NO MESSAGE"
 
-        listOf(
+        val output = mutableListOf<SearchResponse>()
+
+        output.add(
             newMovieSearchResponse(
-                "ERROR TYPE: ${e.javaClass.simpleName}",
-                "$mainUrl/debug-error-type",
-                TvType.Movie,
-                false
-            ),
-            newMovieSearchResponse(
-                "ERROR: ${error.take(120)}",
-                "$mainUrl/debug-error",
+                "EXCEPTION",
+                "$mainUrl/debug-exception",
                 TvType.Movie,
                 false
             )
         )
+
+        message.chunked(15).forEachIndexed { index, part ->
+
+            output.add(
+                newMovieSearchResponse(
+                    "$index: $part",
+                    "$mainUrl/debug-$index",
+                    TvType.Movie,
+                    false
+                )
+            )
+        }
+
+        output
     }
-}
-    
+}    
     override suspend fun load(
     url: String
 ): LoadResponse {
