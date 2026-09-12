@@ -75,34 +75,43 @@ override suspend fun search(
     query: String
 ): List<SearchResponse> {
 
-    val body = mapOf(
-        "keyword" to query,
-        "type" to 0,
-        "page" to 1,
-        "pageSize" to 20
-    )
-        .toJson()
-        .toRequestBody(
-            RequestBodyTypes.JSON.toMediaTypeOrNull()
+    val timestamp = System.currentTimeMillis().toString()
+
+    val md5 = java.security.MessageDigest
+        .getInstance("MD5")
+        .digest(timestamp.reversed().toByteArray())
+        .joinToString("") { "%02x".format(it) }
+
+    val clientToken = "$timestamp,$md5"
+
+    val response = app.get(
+        "https://api.inmoviebox.com/wefeed-mobile-bff/tab-operating" +
+                "?host=api.inmoviebox.com&page=1&pageSize=24&tabId=1",
+        headers = mapOf(
+            "User-Agent" to "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
+            "Accept" to "application/json",
+            "X-M-Version" to "4.0.02",
+            "X-Client-Token" to clientToken,
+            "X-Client-Info" to """{"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI"}"""
         )
-
-    val response = app.post(
-        "https://api.inmoviebox.com/wefeed-mobile-bff/subject-api/search",
-        requestBody = body
     )
 
-    val raw = response.text
-        .replace("\n", " ")
-        .replace("\r", " ")
+    val guestToken = response.headers["x-user"]
 
-    return raw.chunked(20).mapIndexed { index, chunk ->
+    val debug = if (!guestToken.isNullOrBlank()) {
+        "BERHASIL!\nx-user ditemukan:\n$guestToken"
+    } else {
+        "GAGAL!\nx-user tidak ditemukan.\n\nRESPONSE:\n${response.text.take(500)}"
+    }
+
+    return listOf(
         newMovieSearchResponse(
-            "$index: $chunk",
-            "$mainUrl/debug$index",
+            debug,
+            "$mainUrl/debug",
             TvType.Movie,
             false
         )
-    }
+    )
 }
 
     override suspend fun load(
