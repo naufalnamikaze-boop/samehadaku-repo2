@@ -109,20 +109,21 @@ override suspend fun search(
             )
         )
 
-    } catch (e: Exception) {
+   } catch (e: Exception) {
 
-        listOf(
-            newMovieSearchResponse(
-                "ERROR: ${e.javaClass.simpleName} - ${e.message}",
-                "$mainUrl/debug",
-                TvType.Movie,
-                false
-            )
+    val error = "ERROR: ${e.javaClass.simpleName} - ${e.message}"
+
+    error.chunked(20).mapIndexed { index, chunk ->
+        newMovieSearchResponse(
+            "$index: $chunk",
+            "$mainUrl/debug-error-$index",
+            TvType.Movie,
+            false
         )
     }
+  }
 }
     
-
     override suspend fun load(
     url: String
 ): LoadResponse {
