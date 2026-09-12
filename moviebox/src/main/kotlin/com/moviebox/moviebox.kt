@@ -69,24 +69,48 @@ class Moviebox : MainAPI() {
 
     override suspend fun quickSearch(query: String): List<SearchResponse> = search(query)
 
-override suspend fun search(query: String): List<SearchResponse> {
-    val searchUrl = "https://h5.aoneroom.com/wefeed-h5-bff/web/subject/search"
+override suspend fun search(
+    query: String
+): List<SearchResponse> {
 
-    val body = mapOf(
-        "keyword" to query,
-        "page" to 1,
-        "perPage" to 24,
-        "subjectType" to 0
-    ).toJson().toRequestBody(
-        RequestBodyTypes.JSON.toMediaTypeOrNull()
-    )
+    return try {
 
-    return app.post(
-        searchUrl,
-        requestBody = body
-    ).parsedSafe<Media>()?.data?.items
-        ?.map { it.toSearchResponse(this) }
-        ?: emptyList()
+        val response = app.post(
+            "https://h5.aoneroom.com/wefeed-h5-bff/web/subject/search",
+            requestBody = mapOf(
+                "keyword" to query,
+                "page" to 1,
+                "perPage" to 24,
+                "subjectType" to 0
+            ).toJson().toRequestBody(
+                RequestBodyTypes.JSON.toMediaTypeOrNull()
+            )
+        )
+
+        val raw = response.text()
+
+        raw.chunked(100).mapIndexed { index, chunk ->
+            newMovieSearchResponse(
+                "$index: $chunk",
+                "$mainUrl/debug-search-$index",
+                TvType.Movie,
+                false
+            )
+        }
+
+    } catch (e: Exception) {
+
+        val error = "ERROR: ${e.javaClass.simpleName} - ${e.message}"
+
+        error.chunked(100).mapIndexed { index, chunk ->
+            newMovieSearchResponse(
+                "$index: $chunk",
+                "$mainUrl/debug-search-error-$index",
+                TvType.Movie,
+                false
+            )
+        }
+    }
 }
     
     override suspend fun load(
