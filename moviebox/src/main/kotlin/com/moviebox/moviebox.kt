@@ -68,7 +68,6 @@ class Moviebox : MainAPI() {
     }
 
     override suspend fun quickSearch(
-    override suspend fun quickSearch(
     query: String
 ): List<SearchResponse> = search(query)
 
