@@ -121,23 +121,7 @@ override suspend fun search(
         )
     }
 }
-    val guestToken = response.headers["x-user"]
-
-    val debug = if (!guestToken.isNullOrBlank()) {
-        "BERHASIL!\nx-user ditemukan:\n$guestToken"
-    } else {
-        "GAGAL!\nx-user tidak ditemukan.\n\nRESPONSE:\n${response.text.take(500)}"
-    }
-
-    return listOf(
-        newMovieSearchResponse(
-            debug,
-            "$mainUrl/debug",
-            TvType.Movie,
-            false
-        )
-    )
-}
+    
 
     override suspend fun load(
     url: String
