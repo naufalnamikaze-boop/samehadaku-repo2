@@ -81,13 +81,9 @@ override suspend fun search(query: String): List<SearchResponse> {
 
         val clientToken = "$timestamp,$md5"
 
-        // Gateway yang sebelumnya terbukti bisa diakses dari CloudStream
-        val gateway = "https://fmoviesunblocked.net"
-
-        val commonHeaders = mapOf(
+        val headers = mapOf(
             "Accept" to "application/json",
             "User-Agent" to "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
-            "Referer" to "$gateway/",
             "X-M-Version" to "4.0.02",
             "X-Client-Token" to clientToken,
             "X-Client-Status" to "0",
@@ -95,89 +91,106 @@ override suspend fun search(query: String): List<SearchResponse> {
             "X-Client-Info" to """{"package_name":"com.community.oneroom","version_name":"4.0.02","version_code":50020126,"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI","region":"US","X-Play-Mode":"2"}"""
         )
 
-        // 1. Ambil guest session
+        // Coba endpoint guest yang sama, tetapi jangan bergantung
+        // pada header x-user. Kita baca token/session dari body juga.
         val bootstrap = app.get(
-            "$gateway/wefeed-mobile-bff/tab-operating" +
+            "$apiUrl/wefeed-mobile-bff/tab-operating" +
                     "?host=api5.aoneroom.com" +
                     "&page=1" +
                     "&pageSize=24" +
                     "&tabId=1",
-            headers = commonHeaders
+            headers = headers
         )
 
-        // Coba beberapa kemungkinan penamaan header
         val xUser =
             bootstrap.headers["x-user"]
                 ?: bootstrap.headers["X-User"]
                 ?: bootstrap.headers["X-USER"]
 
-        // Kalau gateway tidak meneruskan x-user,
-        // tampilkan status supaya kita tahu persis hasilnya.
-        if (xUser.isNullOrBlank()) {
+        // Kalau x-user tersedia, langsung gunakan Search Mobile API.
+        if (!xUser.isNullOrBlank()) {
 
-            return listOf(
-                newMovieSearchResponse(
-                    "BOOT HTTP ${bootstrap.code}",
-                    "$gateway/debug-bootstrap",
-                    TvType.Movie,
-                    false
-                ),
-                newMovieSearchResponse(
-                    "X-USER NULL",
-                    "$gateway/debug-xuser",
-                    TvType.Movie,
-                    false
+            val body = mapOf(
+                "keyword" to query,
+                "type" to 0,
+                "page" to 1,
+                "pageSize" to 20
+            ).toJson()
+                .toRequestBody(
+                    RequestBodyTypes.JSON.toMediaTypeOrNull()
                 )
+
+            val response = app.post(
+                "$apiUrl/wefeed-mobile-bff/subject-api/search",
+                headers = headers + mapOf(
+                    "Content-Type" to "application/json;charset=UTF-8",
+                    "Authorization" to "Bearer $xUser"
+                ),
+                requestBody = body
             )
+
+            return response.parsedSafe<Media>()
+                ?.data
+                ?.items
+                ?.map { it.toSearchResponse(this) }
+                ?: emptyList()
         }
 
-        // 2. Search menggunakan guest token yang didapat
-        val body = mapOf(
-            "keyword" to query,
-            "type" to 0,
-            "page" to 1,
-            "pageSize" to 20
-        ).toJson()
-            .toRequestBody(
-                RequestBodyTypes.JSON.toMediaTypeOrNull()
-            )
+        // Debug: tampilkan apakah token/session ternyata ada di body.
+        val raw = bootstrap.text
 
-        val response = app.post(
-            "$gateway/wefeed-mobile-bff/subject-api/search",
-            headers = commonHeaders + mapOf(
-                "Authorization" to "Bearer $xUser"
-            ),
-            requestBody = body
+        val interesting = listOf(
+            "x-user",
+            "xUser",
+            "token",
+            "authorization",
+            "userType",
+            "guest"
         )
 
-        // 3. Parse hasil
-        response.parsedSafe<Media>()
-            ?.data
-            ?.items
-            ?.map { it.toSearchResponse(this) }
-            ?: emptyList()
+        val found = interesting.filter {
+            raw.contains(it, ignoreCase = true)
+        }
 
-    } catch (e: Exception) {
-
-        // Tampilkan error langsung di hasil Search CloudStream
-        e.message
-            ?.chunked(35)
-            ?.mapIndexed { index, msg ->
+        if (found.isNotEmpty()) {
+            return found.mapIndexed { index, value ->
                 newMovieSearchResponse(
-                    "$index: $msg",
-                    "$mainUrl/debug-error-$index",
+                    "FOUND BODY: $value",
+                    "$mainUrl/debug-body-$index",
                     TvType.Movie,
                     false
                 )
             }
-            ?: listOf(
-                newMovieSearchResponse(
-                    e.javaClass.simpleName,
-                    "$mainUrl/debug-error",
-                    TvType.Movie,
-                    false
-                )
+        }
+
+        listOf(
+            newMovieSearchResponse(
+                "BOOT ${bootstrap.code}",
+                "$mainUrl/debug-bootstrap",
+                TvType.Movie,
+                false
+            ),
+            newMovieSearchResponse(
+                "NO X-USER / NO TOKEN",
+                "$mainUrl/debug-session",
+                TvType.Movie,
+                false
             )
+        )
+
+    } catch (e: Exception) {
+
+        val error =
+            "${e.javaClass.simpleName}: ${e.message ?: "NO MESSAGE"}"
+
+        error.chunked(35).mapIndexed { index, text ->
+            newMovieSearchResponse(
+                "$index: $text",
+                "$mainUrl/debug-error-$index",
+                TvType.Movie,
+                false
+            )
+        }
     }
 }
 
