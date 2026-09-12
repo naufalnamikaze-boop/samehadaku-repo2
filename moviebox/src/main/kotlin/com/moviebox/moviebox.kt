@@ -67,7 +67,9 @@ class Moviebox : MainAPI() {
         )
     }
 
-    override suspend fun quickSearch(query: String): List<SearchResponse> = search(query)
+    override suspend fun quickSearch(
+    query: String
+): List<SearchResponse> = search(query)
 
 override suspend fun search(
     query: String
@@ -75,48 +77,135 @@ override suspend fun search(
 
     return try {
 
-        val response = app.post(
-    "https://h5.aoneroom.com/wefeed-h5-bff/web/subject/search",
-    headers = mapOf(
-        "Accept" to "application/json",
-        "Accept-Language" to "en-US,en;q=0.5",
-        "X-Client-Info" to """{"timezone":"Africa/Nairobi"}""",
-        "User-Agent" to "moviebox-js-sdk/preview",
-        "Content-Type" to "application/json"
-    ),
-    requestBody = mapOf(
-        "keyword" to query,
-        "page" to 1,
-        "perPage" to 24,
-        "subjectType" to 0
-    ).toJson().toRequestBody(
-        RequestBodyTypes.JSON.toMediaTypeOrNull()
-    )
-)
+        // =========================================================
+        // 1. Buat X-Client-Token
+        // =========================================================
 
-        val raw = response.text
+        val timestamp = System.currentTimeMillis().toString()
 
-        raw.chunked(100).mapIndexed { index, chunk ->
-            newMovieSearchResponse(
-                "$index: $chunk",
-                "$mainUrl/debug-search-$index",
-                TvType.Movie,
-                false
+        val md5 = java.security.MessageDigest
+            .getInstance("MD5")
+            .digest(
+                timestamp.reversed().toByteArray()
+            )
+            .joinToString("") {
+                "%02x".format(it)
+            }
+
+        val clientToken = "$timestamp,$md5"
+
+        // =========================================================
+        // 2. Guest bootstrap
+        //    Ambil dynamic x-user dari response header
+        // =========================================================
+
+        val bootstrap = app.get(
+            "https://api6.aoneroom.com/wefeed-mobile-bff/tab-operating" +
+                    "?host=api.inmoviebox.com" +
+                    "&page=1" +
+                    "&pageSize=24" +
+                    "&tabId=1",
+            headers = mapOf(
+                "User-Agent" to
+                        "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
+
+                "Accept" to
+                        "application/json",
+
+                "X-M-Version" to
+                        "4.0.02",
+
+                "X-Client-Token" to
+                        clientToken,
+
+                "X-Client-Info" to
+                        """{"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI"}"""
+            )
+        )
+
+        val xUser = bootstrap.headers["x-user"]
+
+        // Kalau server tidak memberikan guest session,
+        // jangan lanjutkan request search.
+        if (xUser.isNullOrBlank()) {
+            throw ErrorLoadingException(
+                "MovieBox guest session tidak mendapatkan x-user"
             )
         }
+
+        // =========================================================
+        // 3. Request Search Mobile BFF
+        // =========================================================
+
+        val requestBody = mapOf(
+            "keyword" to query,
+            "type" to 0,
+            "page" to 1,
+            "pageSize" to 20
+        ).toJson().toRequestBody(
+            RequestBodyTypes.JSON.toMediaTypeOrNull()
+        )
+
+        val response = app.post(
+            "https://api6.aoneroom.com/wefeed-mobile-bff/subject-api/search",
+            headers = mapOf(
+
+                "User-Agent" to
+                        "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
+
+                "Accept" to
+                        "application/json",
+
+                "Content-Type" to
+                        "application/json;charset=UTF-8",
+
+                "X-M-Version" to
+                        "4.0.02",
+
+                "X-Client-Token" to
+                        clientToken,
+
+                "X-Client-Info" to
+                        """{"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI"}""",
+
+                "Authorization" to
+                        "Bearer $xUser"
+            ),
+
+            requestBody = requestBody
+        )
+
+        // =========================================================
+        // 4. Parse hasil Search
+        // =========================================================
+
+        response.parsedSafe<Media>()
+            ?.data
+            ?.items
+            ?.map {
+                it.toSearchResponse(this)
+            }
+            ?: emptyList()
 
     } catch (e: Exception) {
 
-        val error = "ERROR: ${e.javaClass.simpleName} - ${e.message}"
+        // Supaya kalau masih gagal, error-nya kelihatan
+        // langsung di hasil Search CloudStream.
 
-        error.chunked(100).mapIndexed { index, chunk ->
-            newMovieSearchResponse(
-                "$index: $chunk",
-                "$mainUrl/debug-search-error-$index",
-                TvType.Movie,
-                false
-            )
-        }
+        val error =
+            "${e.javaClass.simpleName}: ${e.message}"
+
+        error
+            .chunked(80)
+            .mapIndexed { index, chunk ->
+
+                newMovieSearchResponse(
+                    "ERROR $index: $chunk",
+                    "$mainUrl/debug-search-error-$index",
+                    TvType.Movie,
+                    false
+                )
+            }
     }
 }
     
