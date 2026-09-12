@@ -1,0 +1,54 @@
+[
+    {
+        "fileHash": "sha256-cc1c355ece16fb6b5941a0a4fbfebe9d01c3dbfe3182c00cb3a6b9b9d9abf531",
+        "apiVersion": 1,
+        "fileSize": 17138,
+        "status": 3,
+        "authors": [
+            
+        ],
+        "version": 2,
+        "internalName": "Dutamovie",
+        "url": "",
+        "name": "Dutamovie"
+    },
+    {
+        "fileHash": "sha256-563b93ca5650cce2ad52fd80d1c5292fc4a735869062504ca3a8e5195de634cd",
+        "apiVersion": 1,
+        "fileSize": 29961,
+        "status": 3,
+        "authors": [
+            
+        ],
+        "version": 1,
+        "internalName": "kuramanime",
+        "url": "",
+        "name": "kuramanime"
+    },
+    {
+        "fileHash": "sha256-8c3a3717d65bc14ac10456ca227da4f71b33c6b11dee2da11d8de6ee978d7d27",
+        "apiVersion": 1,
+        "fileSize": 33230,
+        "status": 3,
+        "authors": [
+            
+        ],
+        "version": 2,
+        "internalName": "moviebox",
+        "url": "",
+        "name": "moviebox"
+    },
+    {
+        "fileHash": "sha256-8d41d8f91174a5041e36f7536858b22251c5c164bad378241ee354384550eb60",
+        "apiVersion": 1,
+        "fileSize": 16973,
+        "status": 3,
+        "authors": [
+            
+        ],
+        "version": 3,
+        "internalName": "samehadaku",
+        "url": "",
+        "name": "samehadaku"
+    }
+]
