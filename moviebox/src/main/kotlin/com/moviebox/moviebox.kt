@@ -75,27 +75,52 @@ override suspend fun search(
     query: String
 ): List<SearchResponse> {
 
-    val timestamp = System.currentTimeMillis().toString()
+    return try {
 
-    val md5 = java.security.MessageDigest
-        .getInstance("MD5")
-        .digest(timestamp.reversed().toByteArray())
-        .joinToString("") { "%02x".format(it) }
+        val timestamp = System.currentTimeMillis().toString()
 
-    val clientToken = "$timestamp,$md5"
+        val md5 = java.security.MessageDigest
+            .getInstance("MD5")
+            .digest(timestamp.reversed().toByteArray())
+            .joinToString("") { "%02x".format(it) }
 
-    val response = app.get(
-        "https://api.inmoviebox.com/wefeed-mobile-bff/tab-operating" +
-                "?host=api.inmoviebox.com&page=1&pageSize=24&tabId=1",
-        headers = mapOf(
-            "User-Agent" to "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
-            "Accept" to "application/json",
-            "X-M-Version" to "4.0.02",
-            "X-Client-Token" to clientToken,
-            "X-Client-Info" to """{"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI"}"""
+        val clientToken = "$timestamp,$md5"
+
+        val response = app.get(
+            "https://api.inmoviebox.com/wefeed-mobile-bff/tab-operating" +
+                    "?host=api.inmoviebox.com&page=1&pageSize=24&tabId=1",
+            headers = mapOf(
+                "User-Agent" to "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
+                "Accept" to "application/json",
+                "X-M-Version" to "4.0.02",
+                "X-Client-Token" to clientToken,
+                "X-Client-Info" to """{"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI"}"""
+            )
         )
-    )
 
+        val xUser = response.headers["x-user"]
+
+        listOf(
+            newMovieSearchResponse(
+                "HTTP: ${response.code} | x-user: ${xUser != null}",
+                "$mainUrl/debug",
+                TvType.Movie,
+                false
+            )
+        )
+
+    } catch (e: Exception) {
+
+        listOf(
+            newMovieSearchResponse(
+                "ERROR: ${e.javaClass.simpleName} - ${e.message}",
+                "$mainUrl/debug",
+                TvType.Movie,
+                false
+            )
+        )
+    }
+}
     val guestToken = response.headers["x-user"]
 
     val debug = if (!guestToken.isNullOrBlank()) {
