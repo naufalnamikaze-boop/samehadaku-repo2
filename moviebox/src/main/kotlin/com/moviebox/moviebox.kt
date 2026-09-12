@@ -67,171 +67,120 @@ class Moviebox : MainAPI() {
         )
     }
 
-    override suspend fun quickSearch(
-    query: String
-): List<SearchResponse> = search(query)
+override suspend fun quickSearch(query: String): List<SearchResponse> = search(query)
 
-override suspend fun search(
-    query: String
-): List<SearchResponse> {
-
+override suspend fun search(query: String): List<SearchResponse> {
     return try {
-
-        // =====================================================
-        // 1. X-Client-Token
-        // =====================================================
 
         val timestamp = System.currentTimeMillis().toString()
 
         val md5 = java.security.MessageDigest
             .getInstance("MD5")
             .digest(timestamp.reversed().toByteArray())
-            .joinToString("") {
-                "%02x".format(it)
-            }
+            .joinToString("") { "%02x".format(it) }
 
         val clientToken = "$timestamp,$md5"
 
-        // =====================================================
-        // 2. Guest bootstrap
-        // =====================================================
+        // Gateway yang sebelumnya terbukti bisa diakses dari CloudStream
+        val gateway = "https://fmoviesunblocked.net"
 
+        val commonHeaders = mapOf(
+            "Accept" to "application/json",
+            "User-Agent" to "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
+            "Referer" to "$gateway/",
+            "X-M-Version" to "4.0.02",
+            "X-Client-Token" to clientToken,
+            "X-Client-Status" to "0",
+            "X-Play-Mode" to "2",
+            "X-Client-Info" to """{"package_name":"com.community.oneroom","version_name":"4.0.02","version_code":50020126,"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI","region":"US","X-Play-Mode":"2"}"""
+        )
+
+        // 1. Ambil guest session
         val bootstrap = app.get(
-            "https://api5.aoneroom.com/wefeed-mobile-bff/tab-operating" +
+            "$gateway/wefeed-mobile-bff/tab-operating" +
                     "?host=api5.aoneroom.com" +
                     "&page=1" +
                     "&pageSize=24" +
                     "&tabId=1",
-            headers = mapOf(
-
-                "Accept" to "application/json",
-
-                "User-Agent" to
-                        "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
-
-                "Referer" to
-                        "https://api5.aoneroom.com/",
-
-                "X-M-Version" to
-                        "4.0.02",
-
-                "X-Client-Token" to
-                        clientToken,
-
-                "X-Client-Status" to
-                        "0",
-
-                "X-Play-Mode" to
-                        "2",
-
-                "X-Client-Info" to
-                        """{"package_name":"com.community.oneroom","version_name":"4.0.02","version_code":50020126,"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI","region":"US","X-Play-Mode":"2"}"""
-            )
+            headers = commonHeaders
         )
 
-        val xUser = bootstrap.headers["x-user"]
+        // Coba beberapa kemungkinan penamaan header
+        val xUser =
+            bootstrap.headers["x-user"]
+                ?: bootstrap.headers["X-User"]
+                ?: bootstrap.headers["X-USER"]
 
-        // =====================================================
-        // DEBUG GUEST SESSION
-        // =====================================================
-
+        // Kalau gateway tidak meneruskan x-user,
+        // tampilkan status supaya kita tahu persis hasilnya.
         if (xUser.isNullOrBlank()) {
 
             return listOf(
                 newMovieSearchResponse(
                     "BOOT HTTP ${bootstrap.code}",
-                    "$mainUrl/debug-bootstrap",
+                    "$gateway/debug-bootstrap",
                     TvType.Movie,
                     false
                 ),
                 newMovieSearchResponse(
-                    "XUSER NULL",
-                    "$mainUrl/debug-xuser",
+                    "X-USER NULL",
+                    "$gateway/debug-xuser",
                     TvType.Movie,
                     false
                 )
             )
         }
 
-        // =====================================================
-        // 3. Search
-        // =====================================================
-
+        // 2. Search menggunakan guest token yang didapat
         val body = mapOf(
             "keyword" to query,
             "type" to 0,
             "page" to 1,
             "pageSize" to 20
-        ).toJson().toRequestBody(
-            RequestBodyTypes.JSON.toMediaTypeOrNull()
-        )
+        ).toJson()
+            .toRequestBody(
+                RequestBodyTypes.JSON.toMediaTypeOrNull()
+            )
 
         val response = app.post(
-            "https://api5.aoneroom.com/wefeed-mobile-bff/subject-api/search",
-
-            headers = mapOf(
-
-                "Accept" to
-                        "application/json",
-
-                "Content-Type" to
-                        "application/json;charset=UTF-8",
-
-                "User-Agent" to
-                        "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
-
-                "Referer" to
-                        "https://api5.aoneroom.com/",
-
-                "X-M-Version" to
-                        "4.0.02",
-
-                "X-Client-Token" to
-                        clientToken,
-
-                "X-Client-Status" to
-                        "0",
-
-                "X-Play-Mode" to
-                        "2",
-
-                "X-Client-Info" to
-                        """{"package_name":"com.community.oneroom","version_name":"4.0.02","version_code":50020126,"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI","region":"US","X-Play-Mode":"2"}""",
-
-                "Authorization" to
-                        "Bearer $xUser"
+            "$gateway/wefeed-mobile-bff/subject-api/search",
+            headers = commonHeaders + mapOf(
+                "Authorization" to "Bearer $xUser"
             ),
-
             requestBody = body
         )
 
-        // =====================================================
-        // 4. Parse Search
-        // =====================================================
-
+        // 3. Parse hasil
         response.parsedSafe<Media>()
             ?.data
             ?.items
-            ?.map {
-                it.toSearchResponse(this)
-            }
+            ?.map { it.toSearchResponse(this) }
             ?: emptyList()
 
     } catch (e: Exception) {
 
-        val error =
-            "${e.javaClass.simpleName}: ${e.message ?: "NO MESSAGE"}"
-
-        error.chunked(30).mapIndexed { index, chunk ->
-            newMovieSearchResponse(
-                "$index: $chunk",
-                "$mainUrl/debug-error-$index",
-                TvType.Movie,
-                false
+        // Tampilkan error langsung di hasil Search CloudStream
+        e.message
+            ?.chunked(35)
+            ?.mapIndexed { index, msg ->
+                newMovieSearchResponse(
+                    "$index: $msg",
+                    "$mainUrl/debug-error-$index",
+                    TvType.Movie,
+                    false
+                )
+            }
+            ?: listOf(
+                newMovieSearchResponse(
+                    e.javaClass.simpleName,
+                    "$mainUrl/debug-error",
+                    TvType.Movie,
+                    false
+                )
             )
-        }
     }
 }
+
     override suspend fun load(
     url: String
 ): LoadResponse {
