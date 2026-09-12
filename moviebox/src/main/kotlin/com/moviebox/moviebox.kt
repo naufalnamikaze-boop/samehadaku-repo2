@@ -77,6 +77,10 @@ override suspend fun search(
 
     return try {
 
+        // =====================================================
+        // 1. X-Client-Token
+        // =====================================================
+
         val timestamp = System.currentTimeMillis().toString()
 
         val md5 = java.security.MessageDigest
@@ -87,6 +91,71 @@ override suspend fun search(
             }
 
         val clientToken = "$timestamp,$md5"
+
+        // =====================================================
+        // 2. Guest bootstrap
+        // =====================================================
+
+        val bootstrap = app.get(
+            "https://api5.aoneroom.com/wefeed-mobile-bff/tab-operating" +
+                    "?host=api5.aoneroom.com" +
+                    "&page=1" +
+                    "&pageSize=24" +
+                    "&tabId=1",
+            headers = mapOf(
+
+                "Accept" to "application/json",
+
+                "User-Agent" to
+                        "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
+
+                "Referer" to
+                        "https://api5.aoneroom.com/",
+
+                "X-M-Version" to
+                        "4.0.02",
+
+                "X-Client-Token" to
+                        clientToken,
+
+                "X-Client-Status" to
+                        "0",
+
+                "X-Play-Mode" to
+                        "2",
+
+                "X-Client-Info" to
+                        """{"package_name":"com.community.oneroom","version_name":"4.0.02","version_code":50020126,"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI","region":"US","X-Play-Mode":"2"}"""
+            )
+        )
+
+        val xUser = bootstrap.headers["x-user"]
+
+        // =====================================================
+        // DEBUG GUEST SESSION
+        // =====================================================
+
+        if (xUser.isNullOrBlank()) {
+
+            return listOf(
+                newMovieSearchResponse(
+                    "BOOT HTTP ${bootstrap.code}",
+                    "$mainUrl/debug-bootstrap",
+                    TvType.Movie,
+                    false
+                ),
+                newMovieSearchResponse(
+                    "XUSER NULL",
+                    "$mainUrl/debug-xuser",
+                    TvType.Movie,
+                    false
+                )
+            )
+        }
+
+        // =====================================================
+        // 3. Search
+        // =====================================================
 
         val body = mapOf(
             "keyword" to query,
@@ -99,29 +168,54 @@ override suspend fun search(
 
         val response = app.post(
             "https://api5.aoneroom.com/wefeed-mobile-bff/subject-api/search",
+
             headers = mapOf(
-                "Accept" to "application/json",
-                "Content-Type" to "application/json;charset=UTF-8",
+
+                "Accept" to
+                        "application/json",
+
+                "Content-Type" to
+                        "application/json;charset=UTF-8",
+
                 "User-Agent" to
-                    "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
-                "X-M-Version" to "4.0.02",
-                "X-Client-Token" to clientToken,
+                        "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
+
+                "Referer" to
+                        "https://api5.aoneroom.com/",
+
+                "X-M-Version" to
+                        "4.0.02",
+
+                "X-Client-Token" to
+                        clientToken,
+
+                "X-Client-Status" to
+                        "0",
+
+                "X-Play-Mode" to
+                        "2",
+
                 "X-Client-Info" to
-                    """{"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI"}"""
+                        """{"package_name":"com.community.oneroom","version_name":"4.0.02","version_code":50020126,"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI","region":"US","X-Play-Mode":"2"}""",
+
+                "Authorization" to
+                        "Bearer $xUser"
             ),
+
             requestBody = body
         )
 
-        val raw = response.text
+        // =====================================================
+        // 4. Parse Search
+        // =====================================================
 
-        raw.chunked(70).mapIndexed { index, chunk ->
-            newMovieSearchResponse(
-                "$index: $chunk",
-                "$mainUrl/debug-search-$index",
-                TvType.Movie,
-                false
-            )
-        }
+        response.parsedSafe<Media>()
+            ?.data
+            ?.items
+            ?.map {
+                it.toSearchResponse(this)
+            }
+            ?: emptyList()
 
     } catch (e: Exception) {
 
