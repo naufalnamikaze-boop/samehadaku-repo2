@@ -76,16 +76,23 @@ override suspend fun search(
     return try {
 
         val response = app.post(
-            "https://h5.aoneroom.com/wefeed-h5-bff/web/subject/search",
-            requestBody = mapOf(
-                "keyword" to query,
-                "page" to 1,
-                "perPage" to 24,
-                "subjectType" to 0
-            ).toJson().toRequestBody(
-                RequestBodyTypes.JSON.toMediaTypeOrNull()
-            )
-        )
+    "https://h5.aoneroom.com/wefeed-h5-bff/web/subject/search",
+    headers = mapOf(
+        "Accept" to "application/json",
+        "Accept-Language" to "en-US,en;q=0.5",
+        "X-Client-Info" to """{"timezone":"Africa/Nairobi"}""",
+        "User-Agent" to "moviebox-js-sdk/preview",
+        "Content-Type" to "application/json"
+    ),
+    requestBody = mapOf(
+        "keyword" to query,
+        "page" to 1,
+        "perPage" to 24,
+        "subjectType" to 0
+    ).toJson().toRequestBody(
+        RequestBodyTypes.JSON.toMediaTypeOrNull()
+    )
+)
 
         val raw = response.text
 
