@@ -75,83 +75,100 @@ override suspend fun search(
     query: String
 ): List<SearchResponse> {
 
-    return try {
+    val hosts = listOf(
+        "https://api.inmoviebox.com",
+        "https://api6.aoneroom.com",
+        "https://api5.aoneroom.com",
+        "https://api4.aoneroom.com",
+        "https://api3.aoneroom.com",
+        "https://api4sg.aoneroom.com",
+        "https://api6sg.aoneroom.com"
+    )
 
-        val timestamp = System.currentTimeMillis().toString()
+    val results = mutableListOf<SearchResponse>()
 
-        val md5 = java.security.MessageDigest
-            .getInstance("MD5")
-            .digest(timestamp.reversed().toByteArray())
-            .joinToString("") {
-                "%02x".format(it)
+    val timestamp = System.currentTimeMillis().toString()
+
+    val md5 = java.security.MessageDigest
+        .getInstance("MD5")
+        .digest(timestamp.reversed().toByteArray())
+        .joinToString("") {
+            "%02x".format(it)
+        }
+
+    val clientToken = "$timestamp,$md5"
+
+    for (host in hosts) {
+
+        try {
+
+            val response = app.get(
+                "$host/wefeed-mobile-bff/tab-operating" +
+                        "?host=api.inmoviebox.com" +
+                        "&page=1" +
+                        "&pageSize=24" +
+                        "&tabId=1",
+                headers = mapOf(
+                    "Accept" to "application/json",
+                    "User-Agent" to
+                            "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
+                    "X-M-Version" to "4.0.02",
+                    "X-Client-Token" to clientToken,
+                    "X-Client-Info" to
+                            """{"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI"}"""
+                )
+            )
+
+            val xUser = response.headers["x-user"]
+
+            results.add(
+                newMovieSearchResponse(
+                    "${host.removePrefix("https://")} HTTP ${response.code}",
+                    "$mainUrl/debug-$host",
+                    TvType.Movie,
+                    false
+                )
+            )
+
+            results.add(
+                newMovieSearchResponse(
+                    "${host.removePrefix("https://")} XUSER " +
+                            if (xUser.isNullOrBlank()) "NULL" else "OK",
+                    "$mainUrl/debug-xuser-$host",
+                    TvType.Movie,
+                    false
+                )
+            )
+
+            // Kalau sudah dapat x-user, langsung berhenti.
+            if (!xUser.isNullOrBlank()) {
+                results.add(
+                    newMovieSearchResponse(
+                        "FOUND GUEST SESSION!",
+                        "$mainUrl/debug-found",
+                        TvType.Movie,
+                        false
+                    )
+                )
+                break
             }
 
-        val clientToken = "$timestamp,$md5"
+        } catch (e: Exception) {
 
-        val bootstrap = app.get(
-            "$apiUrl/wefeed-mobile-bff/tab-operating" +
-                    "?host=api.inmoviebox.com" +
-                    "&page=1" +
-                    "&pageSize=24" +
-                    "&tabId=1",
-            headers = mapOf(
-                "Accept" to "application/json",
-                "User-Agent" to
-                        "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
-                "X-M-Version" to "4.0.02",
-                "X-Client-Token" to clientToken,
-                "X-Client-Info" to
-                        """{"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI"}"""
-            )
-        )
-
-        val xUser = bootstrap.headers["x-user"]
-
-        listOf(
-            newMovieSearchResponse(
-                "HTTP ${bootstrap.code}",
-                "$mainUrl/debug-http",
-                TvType.Movie,
-                false
-            ),
-            newMovieSearchResponse(
-                "XUSER ${if (xUser.isNullOrBlank()) "NULL" else "OK"}",
-                "$mainUrl/debug-xuser",
-                TvType.Movie,
-                false
-            )
-        )
-
-    } catch (e: Exception) {
-
-        val message = e.message ?: "NO MESSAGE"
-
-        val output = mutableListOf<SearchResponse>()
-
-        output.add(
-            newMovieSearchResponse(
-                "EXCEPTION",
-                "$mainUrl/debug-exception",
-                TvType.Movie,
-                false
-            )
-        )
-
-        message.chunked(15).forEachIndexed { index, part ->
-
-            output.add(
+            results.add(
                 newMovieSearchResponse(
-                    "$index: $part",
-                    "$mainUrl/debug-$index",
+                    "${host.removePrefix("https://")}: " +
+                            e.javaClass.simpleName,
+                    "$mainUrl/debug-error-$host",
                     TvType.Movie,
                     false
                 )
             )
         }
-
-        output
     }
-}    
+
+    return results
+}
     override suspend fun load(
     url: String
 ): LoadResponse {
