@@ -77,47 +77,33 @@ override suspend fun search(
 
     return try {
 
-        // =========================================================
-        // 1. Buat X-Client-Token
-        // =========================================================
-
         val timestamp = System.currentTimeMillis().toString()
 
         val md5 = java.security.MessageDigest
             .getInstance("MD5")
-            .digest(
-                timestamp.reversed().toByteArray()
-            )
+            .digest(timestamp.reversed().toByteArray())
             .joinToString("") {
                 "%02x".format(it)
             }
 
         val clientToken = "$timestamp,$md5"
 
-        // =========================================================
-        // 2. Guest bootstrap
-        //    Ambil dynamic x-user dari response header
-        // =========================================================
+        // =====================================================
+        // 1. Guest session
+        // =====================================================
 
         val bootstrap = app.get(
-            "https://api6.aoneroom.com/wefeed-mobile-bff/tab-operating" +
+            "$apiUrl/wefeed-mobile-bff/tab-operating" +
                     "?host=api.inmoviebox.com" +
                     "&page=1" +
                     "&pageSize=24" +
                     "&tabId=1",
             headers = mapOf(
+                "Accept" to "application/json",
                 "User-Agent" to
                         "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
-
-                "Accept" to
-                        "application/json",
-
-                "X-M-Version" to
-                        "4.0.02",
-
-                "X-Client-Token" to
-                        clientToken,
-
+                "X-M-Version" to "4.0.02",
+                "X-Client-Token" to clientToken,
                 "X-Client-Info" to
                         """{"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI"}"""
             )
@@ -125,19 +111,17 @@ override suspend fun search(
 
         val xUser = bootstrap.headers["x-user"]
 
-        // Kalau server tidak memberikan guest session,
-        // jangan lanjutkan request search.
         if (xUser.isNullOrBlank()) {
             throw ErrorLoadingException(
-                "MovieBox guest session tidak mendapatkan x-user"
+                "Guest session gagal: x-user tidak ditemukan"
             )
         }
 
-        // =========================================================
-        // 3. Request Search Mobile BFF
-        // =========================================================
+        // =====================================================
+        // 2. Search
+        // =====================================================
 
-        val requestBody = mapOf(
+        val body = mapOf(
             "keyword" to query,
             "type" to 0,
             "page" to 1,
@@ -147,37 +131,20 @@ override suspend fun search(
         )
 
         val response = app.post(
-            "https://api6.aoneroom.com/wefeed-mobile-bff/subject-api/search",
+            "$apiUrl/wefeed-mobile-bff/subject-api/search",
             headers = mapOf(
-
+                "Accept" to "application/json",
+                "Content-Type" to "application/json",
                 "User-Agent" to
                         "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
-
-                "Accept" to
-                        "application/json",
-
-                "Content-Type" to
-                        "application/json;charset=UTF-8",
-
-                "X-M-Version" to
-                        "4.0.02",
-
-                "X-Client-Token" to
-                        clientToken,
-
+                "X-M-Version" to "4.0.02",
+                "X-Client-Token" to clientToken,
                 "X-Client-Info" to
                         """{"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI"}""",
-
-                "Authorization" to
-                        "Bearer $xUser"
+                "Authorization" to "Bearer $xUser"
             ),
-
-            requestBody = requestBody
+            requestBody = body
         )
-
-        // =========================================================
-        // 4. Parse hasil Search
-        // =========================================================
 
         response.parsedSafe<Media>()
             ?.data
@@ -189,28 +156,25 @@ override suspend fun search(
 
     } catch (e: Exception) {
 
-        // Supaya kalau masih gagal, error-nya kelihatan
-        // langsung di hasil Search CloudStream.
-
         val error =
-    "${e.javaClass.simpleName}: ${e.message}"
+            "${e.javaClass.simpleName}: ${e.message}"
 
-listOf(
-    newMovieSearchResponse(
-        "TYPE: ${e.javaClass.simpleName}",
-        "$mainUrl/debug-error-type",
-        TvType.Movie,
-        false
-    ),
-    newMovieSearchResponse(
-        "MSG: ${e.message ?: "null"}",
-        "$mainUrl/debug-error-msg",
-        TvType.Movie,
-        false
-    )
-)
-            }
+        listOf(
+            newMovieSearchResponse(
+                "TYPE: ${e.javaClass.simpleName}",
+                "$mainUrl/debug-error-type",
+                TvType.Movie,
+                false
+            ),
+            newMovieSearchResponse(
+                "MSG: $error",
+                "$mainUrl/debug-error-msg",
+                TvType.Movie,
+                false
+            )
+        )
     }
+}
     
     override suspend fun load(
     url: String
