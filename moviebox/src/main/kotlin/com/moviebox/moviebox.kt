@@ -68,6 +68,7 @@ class Moviebox : MainAPI() {
     }
 
     override suspend fun quickSearch(
+    override suspend fun quickSearch(
     query: String
 ): List<SearchResponse> = search(query)
 
@@ -75,99 +76,68 @@ override suspend fun search(
     query: String
 ): List<SearchResponse> {
 
-    val hosts = listOf(
-        "https://api.inmoviebox.com",
-        "https://api6.aoneroom.com",
-        "https://api5.aoneroom.com",
-        "https://api4.aoneroom.com",
-        "https://api3.aoneroom.com",
-        "https://api4sg.aoneroom.com",
-        "https://api6sg.aoneroom.com"
-    )
+    return try {
 
-    val results = mutableListOf<SearchResponse>()
+        val timestamp = System.currentTimeMillis().toString()
 
-    val timestamp = System.currentTimeMillis().toString()
-
-    val md5 = java.security.MessageDigest
-        .getInstance("MD5")
-        .digest(timestamp.reversed().toByteArray())
-        .joinToString("") {
-            "%02x".format(it)
-        }
-
-    val clientToken = "$timestamp,$md5"
-
-    for (host in hosts) {
-
-        try {
-
-            val response = app.get(
-                "$host/wefeed-mobile-bff/tab-operating" +
-                        "?host=api.inmoviebox.com" +
-                        "&page=1" +
-                        "&pageSize=24" +
-                        "&tabId=1",
-                headers = mapOf(
-                    "Accept" to "application/json",
-                    "User-Agent" to
-                            "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
-                    "X-M-Version" to "4.0.02",
-                    "X-Client-Token" to clientToken,
-                    "X-Client-Info" to
-                            """{"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI"}"""
-                )
-            )
-
-            val xUser = response.headers["x-user"]
-
-            results.add(
-                newMovieSearchResponse(
-                    "${host.removePrefix("https://")} HTTP ${response.code}",
-                    "$mainUrl/debug-$host",
-                    TvType.Movie,
-                    false
-                )
-            )
-
-            results.add(
-                newMovieSearchResponse(
-                    "${host.removePrefix("https://")} XUSER " +
-                            if (xUser.isNullOrBlank()) "NULL" else "OK",
-                    "$mainUrl/debug-xuser-$host",
-                    TvType.Movie,
-                    false
-                )
-            )
-
-            // Kalau sudah dapat x-user, langsung berhenti.
-            if (!xUser.isNullOrBlank()) {
-                results.add(
-                    newMovieSearchResponse(
-                        "FOUND GUEST SESSION!",
-                        "$mainUrl/debug-found",
-                        TvType.Movie,
-                        false
-                    )
-                )
-                break
+        val md5 = java.security.MessageDigest
+            .getInstance("MD5")
+            .digest(timestamp.reversed().toByteArray())
+            .joinToString("") {
+                "%02x".format(it)
             }
 
-        } catch (e: Exception) {
+        val clientToken = "$timestamp,$md5"
 
-            results.add(
-                newMovieSearchResponse(
-                    "${host.removePrefix("https://")}: " +
-                            e.javaClass.simpleName,
-                    "$mainUrl/debug-error-$host",
-                    TvType.Movie,
-                    false
-                )
+        val body = mapOf(
+            "keyword" to query,
+            "type" to 0,
+            "page" to 1,
+            "pageSize" to 20
+        ).toJson().toRequestBody(
+            RequestBodyTypes.JSON.toMediaTypeOrNull()
+        )
+
+        val response = app.post(
+            "https://api5.aoneroom.com/wefeed-mobile-bff/subject-api/search",
+            headers = mapOf(
+                "Accept" to "application/json",
+                "Content-Type" to "application/json;charset=UTF-8",
+                "User-Agent" to
+                    "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
+                "X-M-Version" to "4.0.02",
+                "X-Client-Token" to clientToken,
+                "X-Client-Info" to
+                    """{"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI"}"""
+            ),
+            requestBody = body
+        )
+
+        val raw = response.text
+
+        raw.chunked(70).mapIndexed { index, chunk ->
+            newMovieSearchResponse(
+                "$index: $chunk",
+                "$mainUrl/debug-search-$index",
+                TvType.Movie,
+                false
+            )
+        }
+
+    } catch (e: Exception) {
+
+        val error =
+            "${e.javaClass.simpleName}: ${e.message ?: "NO MESSAGE"}"
+
+        error.chunked(30).mapIndexed { index, chunk ->
+            newMovieSearchResponse(
+                "$index: $chunk",
+                "$mainUrl/debug-error-$index",
+                TvType.Movie,
+                false
             )
         }
     }
-
-    return results
 }
     override suspend fun load(
     url: String
