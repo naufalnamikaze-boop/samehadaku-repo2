@@ -87,7 +87,7 @@ override suspend fun search(
             )
         )
 
-        val raw = response.text()
+        val raw = response.text
 
         raw.chunked(100).mapIndexed { index, chunk ->
             newMovieSearchResponse(
