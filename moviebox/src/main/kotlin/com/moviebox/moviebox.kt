@@ -67,61 +67,26 @@ class Moviebox : MainAPI() {
         )
     }
 
-    override suspend fun quickSearch(
-    query: String
-): List<SearchResponse> = search(query)
+    override suspend fun quickSearch(query: String): List<SearchResponse> = search(query)
 
-override suspend fun search(
-    query: String
-): List<SearchResponse> {
+override suspend fun search(query: String): List<SearchResponse> {
+    val searchUrl = "https://h5.aoneroom.com/wefeed-h5-bff/web/subject/search"
 
-    return try {
+    val body = mapOf(
+        "keyword" to query,
+        "page" to 1,
+        "perPage" to 24,
+        "subjectType" to 0
+    ).toJson().toRequestBody(
+        RequestBodyTypes.JSON.toMediaTypeOrNull()
+    )
 
-        val timestamp = System.currentTimeMillis().toString()
-
-        val md5 = java.security.MessageDigest
-            .getInstance("MD5")
-            .digest(timestamp.reversed().toByteArray())
-            .joinToString("") { "%02x".format(it) }
-
-        val clientToken = "$timestamp,$md5"
-
-        val response = app.get(
-            "https://api6.aoneroom.com/wefeed-mobile-bff/tab-operating" +
-                    "?host=api.inmoviebox.com&page=1&pageSize=24&tabId=1",
-            headers = mapOf(
-                "User-Agent" to "MovieBoxPro/16.2.1 (Android 12; Pixel 6)",
-                "Accept" to "application/json",
-                "X-M-Version" to "4.0.02",
-                "X-Client-Token" to clientToken,
-                "X-Client-Info" to """{"os":"android","os_version":"12","system_language":"en","net":"NETWORK_WIFI"}"""
-            )
-        )
-
-        val xUser = response.headers["x-user"]
-
-        listOf(
-            newMovieSearchResponse(
-                "HTTP: ${response.code} | x-user: ${xUser != null}",
-                "$mainUrl/debug",
-                TvType.Movie,
-                false
-            )
-        )
-
-   } catch (e: Exception) {
-
-    val error = "ERROR: ${e.javaClass.simpleName} - ${e.message}"
-
-    error.chunked(20).mapIndexed { index, chunk ->
-        newMovieSearchResponse(
-            "$index: $chunk",
-            "$mainUrl/debug-error-$index",
-            TvType.Movie,
-            false
-        )
-    }
-  }
+    return app.post(
+        searchUrl,
+        requestBody = body
+    ).parsedSafe<Media>()?.data?.items
+        ?.map { it.toSearchResponse(this) }
+        ?: emptyList()
 }
     
     override suspend fun load(
