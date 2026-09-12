@@ -75,7 +75,7 @@ class Moviebox : MainAPI() {
         "keyword" to query,
         "page" to 1,
         "perPage" to 20,
-        "subjectType" to 0
+        "subjectType" to 1
     )
         .toJson()
         .toRequestBody(
