@@ -19,6 +19,10 @@ class Samehadaku : MainAPI() {
         TvType.Anime
     )
 
+    // =========================================================
+    // HEADER
+    // =========================================================
+
     private val headers = mapOf(
         "User-Agent" to
             "Mozilla/5.0 (Linux; Android 10; K) " +
@@ -32,27 +36,13 @@ class Samehadaku : MainAPI() {
     // =========================================================
 
     override val mainPage = mainPageOf(
-
-        "$mainUrl/anime/page/%d/" to
-            "Anime Terbaru",
-
-        "$mainUrl/anime/page/%d/?order=update" to
-            "Diupdate",
-
-        "$mainUrl/anime/page/%d/?order=latest" to
-            "Baru Ditambahkan",
-
-        "$mainUrl/anime/page/%d/?order=popular" to
-            "Terpopuler",
-
-        "$mainUrl/anime/page/%d/?order=rating" to
-            "Rating Tertinggi",
-
-        "$mainUrl/anime/page/%d/?order=az" to
-            "A-Z",
-
-        "$mainUrl/anime/page/%d/?order=za" to
-            "Z-A"
+        "$mainUrl/anime/page/%d/" to "Anime Terbaru",
+        "$mainUrl/anime/page/%d/?order=update" to "Diupdate",
+        "$mainUrl/anime/page/%d/?order=latest" to "Baru Ditambahkan",
+        "$mainUrl/anime/page/%d/?order=popular" to "Terpopuler",
+        "$mainUrl/anime/page/%d/?order=rating" to "Rating Tertinggi",
+        "$mainUrl/anime/page/%d/?order=az" to "A-Z",
+        "$mainUrl/anime/page/%d/?order=za" to "Z-A"
     )
 
     override suspend fun getMainPage(
@@ -69,8 +59,12 @@ class Samehadaku : MainAPI() {
 
         val home = document
             .select("article")
-            .mapNotNull { it.toSearchResult() }
-            .distinctBy { it.url }
+            .mapNotNull {
+                it.toSearchResult()
+            }
+            .distinctBy {
+                it.url
+            }
 
         return newHomePageResponse(
             request.name,
@@ -86,26 +80,10 @@ class Samehadaku : MainAPI() {
     private fun Element.toSearchResult(): SearchResponse? {
 
         /*
-         * Struktur katalog saat ini:
-         *
-         * <article>
-         *     ...
-         *     <a href="/anime/anime-slug/">
-         *         ...
-         *     </a>
-         *     ...
-         *     <h2>Judul Anime</h2>
-         * </article>
-         *
-         * Kita tidak bergantung pada class lama.
+         * Cari link anime.
          */
-
         val linkElement = selectFirst(
             "a[href*='/anime/']"
-        ) ?: selectFirst(
-            "h2 a[href]",
-            "h3 a[href]",
-            "a[href]"
         ) ?: return null
 
         val href = linkElement
@@ -120,38 +98,46 @@ class Samehadaku : MainAPI() {
             ?: return null
 
         /*
-         * Hindari link kategori seperti:
-         * /anime/
+         * Jangan mengambil halaman katalog
+         * sebagai anime.
          */
         if (
-            fixedUrl == "$mainUrl/anime/" ||
-            fixedUrl == "$mainUrl/anime"
+            fixedUrl == "$mainUrl/anime" ||
+            fixedUrl == "$mainUrl/anime/"
         ) {
             return null
         }
 
         /*
-         * Prioritas judul:
-         * 1. h2
-         * 2. h3
-         * 3. entry-title
-         * 4. anchor
+         * Cari judul.
          */
-        val title = selectFirst(
-            "h2",
-            "h3",
-            ".entry-title",
-            ".title"
-        )
-            ?.text()
-            ?.trim()
-            ?.replace(
-                Regex("\\s+"),
-                " "
-            )
-            ?: linkElement
-                .text()
-                .trim()
+        var title = ""
+
+        val h2 = selectFirst("h2")
+
+        if (h2 != null) {
+            title = h2.text().trim()
+        }
+
+        if (title.isBlank()) {
+            val h3 = selectFirst("h3")
+
+            if (h3 != null) {
+                title = h3.text().trim()
+            }
+        }
+
+        if (title.isBlank()) {
+            val entryTitle = selectFirst(".entry-title")
+
+            if (entryTitle != null) {
+                title = entryTitle.text().trim()
+            }
+        }
+
+        if (title.isBlank()) {
+            title = linkElement.text().trim()
+        }
 
         if (title.isBlank()) {
             return null
@@ -159,30 +145,35 @@ class Samehadaku : MainAPI() {
 
         /*
          * Poster.
-         *
-         * Website bisa menggunakan:
-         * src
-         * data-src
-         * data-lazy-src
-         * data-original
          */
-        val poster = selectFirst(
-            "img"
-        )?.let { img ->
+        val image = selectFirst("img")
 
-            img.attr("data-src")
-                .ifBlank {
-                    img.attr("data-lazy-src")
-                }
-                .ifBlank {
-                    img.attr("data-original")
-                }
-                .ifBlank {
-                    img.attr("src")
-                }
+        var poster = ""
+
+        if (image != null) {
+
+            poster = image
+                .attr("data-src")
                 .trim()
 
-        } ?: ""
+            if (poster.isBlank()) {
+                poster = image
+                    .attr("data-lazy-src")
+                    .trim()
+            }
+
+            if (poster.isBlank()) {
+                poster = image
+                    .attr("data-original")
+                    .trim()
+            }
+
+            if (poster.isBlank()) {
+                poster = image
+                    .attr("src")
+                    .trim()
+            }
+        }
 
         return newAnimeSearchResponse(
             title,
@@ -206,27 +197,25 @@ class Samehadaku : MainAPI() {
             StandardCharsets.UTF_8.toString()
         )
 
-        /*
-         * Endpoint utama yang kita coba:
-         *
-         * /anime/?title=QUERY
-         */
-        val primaryUrl =
+        val searchUrl =
             "$mainUrl/anime/?title=$encodedQuery"
 
         var document = app.get(
-            primaryUrl,
+            searchUrl,
             headers = headers
         ).document
 
         var results = document
             .select("article")
-            .mapNotNull { it.toSearchResult() }
-            .distinctBy { it.url }
+            .mapNotNull {
+                it.toSearchResult()
+            }
+            .distinctBy {
+                it.url
+            }
 
         /*
-         * Fallback ke WordPress search lama
-         * apabila endpoint title tidak menghasilkan apa-apa.
+         * Fallback WordPress search.
          */
         if (results.isEmpty()) {
 
@@ -240,15 +229,19 @@ class Samehadaku : MainAPI() {
 
             results = document
                 .select("article")
-                .mapNotNull { it.toSearchResult() }
-                .distinctBy { it.url }
+                .mapNotNull {
+                    it.toSearchResult()
+                }
+                .distinctBy {
+                    it.url
+                }
         }
 
         return results
     }
 
     // =========================================================
-    // DETAIL ANIME
+    // DETAIL
     // =========================================================
 
     override suspend fun load(
@@ -264,107 +257,130 @@ class Samehadaku : MainAPI() {
         // TITLE
         // =====================================================
 
-        val title = document
-            .selectFirst(
-                "h1.entry-title",
+        var title = ""
+
+        val h1 = document.selectFirst(
+            "h1.entry-title"
+        )
+
+        if (h1 != null) {
+            title = h1.text().trim()
+        }
+
+        if (title.isBlank()) {
+
+            val genericH1 = document.selectFirst(
                 "h1"
             )
-            ?.text()
-            ?.trim()
-            ?.replace(
-                Regex("\\s+"),
-                " "
-            )
-            ?.replace(
-                Regex("\\s+Sub\\s*Indo.*$"),
+
+            if (genericH1 != null) {
+                title = genericH1.text().trim()
+            }
+        }
+
+        if (title.isBlank()) {
+            title = "Unknown"
+        }
+
+        /*
+         * Bersihkan suffix Sub Indo.
+         */
+        title = title
+            .replace(
+                "Sub Indo",
                 "",
                 ignoreCase = true
             )
-            ?.trim()
-            ?: "Unknown"
+            .trim()
 
         // =====================================================
         // POSTER
         // =====================================================
 
-        /*
-         * OpenGraph biasanya lebih stabil
-         * daripada class poster yang bisa berubah.
-         */
-        val poster = document
-            .selectFirst(
-                "meta[property='og:image']"
-            )
-            ?.attr("content")
-            ?.trim()
-            ?.takeIf {
-                it.isNotBlank()
-            }
-            ?: document
-                .selectFirst(
-                    ".infoanime img",
-                    ".thumb img",
-                    ".animeposter img",
-                    "img"
-                )
-                ?.let { img ->
+        var poster = ""
 
-                    img.attr("data-src")
-                        .ifBlank {
-                            img.attr("data-lazy-src")
-                        }
-                        .ifBlank {
-                            img.attr("data-original")
-                        }
-                        .ifBlank {
-                            img.attr("src")
-                        }
+        val ogImage = document.selectFirst(
+            "meta[property='og:image']"
+        )
+
+        if (ogImage != null) {
+            poster = ogImage
+                .attr("content")
+                .trim()
+        }
+
+        if (poster.isBlank()) {
+
+            val posterImage = document.selectFirst(
+                ".infoanime img"
+            )
+
+            if (posterImage != null) {
+
+                poster = posterImage
+                    .attr("data-src")
+                    .trim()
+
+                if (poster.isBlank()) {
+                    poster = posterImage
+                        .attr("data-lazy-src")
                         .trim()
                 }
-                ?: ""
+
+                if (poster.isBlank()) {
+                    poster = posterImage
+                        .attr("src")
+                        .trim()
+                }
+            }
+        }
+
+        if (poster.isBlank()) {
+
+            val genericImage = document.selectFirst(
+                "img"
+            )
+
+            if (genericImage != null) {
+
+                poster = genericImage
+                    .attr("src")
+                    .trim()
+            }
+        }
 
         // =====================================================
         // DESCRIPTION
         // =====================================================
 
-        val description = document
-            .selectFirst(
-                "meta[property='og:description']"
+        var description = ""
+
+        val ogDescription = document.selectFirst(
+            "meta[property='og:description']"
+        )
+
+        if (ogDescription != null) {
+            description = ogDescription
+                .attr("content")
+                .trim()
+        }
+
+        if (description.isBlank()) {
+
+            val entryContent = document.selectFirst(
+                ".entry-content"
             )
-            ?.attr("content")
-            ?.trim()
-            ?.takeIf {
-                it.isNotBlank()
+
+            if (entryContent != null) {
+                description = entryContent
+                    .text()
+                    .trim()
             }
-            ?: document
-                .selectFirst(
-                    ".entry-content",
-                    ".desc",
-                    ".description",
-                    ".sinopsis"
-                )
-                ?.text()
-                ?.trim()
-                ?: ""
+        }
 
         // =====================================================
         // EPISODES
         // =====================================================
-
-        /*
-         * Struktur aktual detail:
-         *
-         * List Episode
-         *
-         * Tensei shitara Ken deshita S2 Episode 1
-         *
-         * Link episode mengarah langsung ke:
-         *
-         * /tensei-shitara-ken-deshita-s2-episode-1/
-         *
-         * Karena class episode bisa berubah,
-         * kita cari link berdasarkan pola teks/url.
-         */
 
         val episodes = document
             .select("a[href]")
@@ -390,43 +406,36 @@ class Samehadaku : MainAPI() {
                 }
 
                 /*
-                 * Harus terlihat seperti episode.
+                 * Cari "Episode 1", "Episode 2",
+                 * "Episode 12", dll.
                  */
-                val episodeMatch = Regex(
-                    """(?i)\bepisode[\s\-]*(\d+(?:\.\d+)?)\b"""
+                val match = Regex(
+                    """(?i)\bEpisode[\s\-]*(\d+(?:\.\d+)?)\b"""
                 ).find(text)
 
-                if (episodeMatch == null) {
+                if (match == null) {
                     return@mapNotNull null
                 }
 
-                /*
-                 * Jangan menangkap link komentar / related
-                 * yang bukan episode utama.
-                 */
-                val fixedUrl = fixUrlNull(href)
-                    ?: return@mapNotNull null
-
                 val episodeNumber =
-                    episodeMatch
+                    match
                         .groupValues
                         .getOrNull(1)
                         ?.toFloatOrNull()
+                        ?: return@mapNotNull null
 
-                if (episodeNumber == null) {
-                    return@mapNotNull null
-                }
+                val episodeUrl =
+                    fixUrlNull(href)
+                        ?: return@mapNotNull null
 
                 newEpisode(
-                    fixedUrl
+                    episodeUrl
                 ) {
 
                     name = text
 
                     episode =
-                        episodeNumber
-                            .toInt()
-
+                        episodeNumber.toInt()
                 }
             }
             .distinctBy {
@@ -441,9 +450,7 @@ class Samehadaku : MainAPI() {
         // =====================================================
 
         val genres = document
-            .select(
-                "a[href*='/genre/']"
-            )
+            .select("a[href*='/genre/']")
             .map {
                 it.text().trim()
             }
@@ -476,7 +483,7 @@ class Samehadaku : MainAPI() {
     }
 
     // =========================================================
-    // LOAD VIDEO LINKS
+    // VIDEO LINKS
     // =========================================================
 
     override suspend fun loadLinks(
@@ -494,23 +501,8 @@ class Samehadaku : MainAPI() {
         var found = false
 
         // =====================================================
-        // METHOD 1
-        // SERVER AJAX
+        // AJAX SERVERS
         // =====================================================
-
-        /*
-         * Kita tidak lagi mengandalkan:
-         *
-         * #server > ul > li > div
-         *
-         * saja.
-         *
-         * Cari elemen apa pun yang mempunyai:
-         *
-         * data-post
-         * data-nume
-         * data-type
-         */
 
         val servers = document.select(
             "[data-post][data-nume][data-type]"
@@ -528,59 +520,49 @@ class Samehadaku : MainAPI() {
                     .attr("data-nume")
                     .trim()
 
-                val type = server
+                val serverType = server
                     .attr("data-type")
                     .trim()
 
                 if (
                     postId.isBlank() ||
                     nume.isBlank() ||
-                    type.isBlank()
+                    serverType.isBlank()
                 ) {
                     continue
                 }
 
-                val serverName =
-                    server
-                        .selectFirst("span")
-                        ?.text()
-                        ?.trim()
-                        ?.takeIf {
-                            it.isNotBlank()
-                        }
-                        ?: server.text()
-                            .trim()
-                            .ifBlank {
-                                "Samehadaku"
-                            }
+                var serverName = server.text().trim()
 
-                val requestBody =
-                    FormBody.Builder()
-                        .add(
-                            "action",
-                            "player_ajax"
-                        )
-                        .add(
-                            "post",
-                            postId
-                        )
-                        .add(
-                            "nume",
-                            nume
-                        )
-                        .add(
-                            "type",
-                            type
-                        )
-                        .build()
+                if (serverName.isBlank()) {
+                    serverName = "Samehadaku"
+                }
+
+                val body = FormBody.Builder()
+                    .add(
+                        "action",
+                        "player_ajax"
+                    )
+                    .add(
+                        "post",
+                        postId
+                    )
+                    .add(
+                        "nume",
+                        nume
+                    )
+                    .add(
+                        "type",
+                        serverType
+                    )
+                    .build()
 
                 val response = app.post(
                     "$mainUrl/wp-admin/admin-ajax.php",
-                    requestBody = requestBody,
+                    requestBody = body,
                     headers = mapOf(
                         "User-Agent" to
-                            headers["User-Agent"]
-                                .orEmpty(),
+                            headers["User-Agent"].orEmpty(),
 
                         "Referer" to data,
 
@@ -593,87 +575,65 @@ class Samehadaku : MainAPI() {
 
                 val html = response.text
 
-                /*
-                 * Cari iframe dari response AJAX.
-                 */
-                val iframeUrl =
-                    Regex(
-                        """(?:src|data-src)\s*=\s*["']([^"']+)["']""",
-                        RegexOption.IGNORE_CASE
-                    )
-                        .find(html)
-                        ?.groupValues
-                        ?.getOrNull(1)
-                        ?.trim()
+                val iframeMatch = Regex(
+                    """(?:src|data-src)\s*=\s*["']([^"']+)["']""",
+                    RegexOption.IGNORE_CASE
+                ).find(html)
 
-                if (
-                    iframeUrl.isNullOrBlank()
-                ) {
+                if (iframeMatch == null) {
                     continue
                 }
+
+                val iframeUrl =
+                    iframeMatch
+                        .groupValues
+                        .getOrNull(1)
+                        ?.trim()
+                        ?: continue
 
                 val fixedUrl =
                     fixUrlNull(iframeUrl)
                         ?: continue
 
-                /*
-                 * Serahkan host embed ke extractor
-                 * CloudStream.
-                 */
-                val loaded =
-                    loadExtractor(
-                        fixedUrl,
-                        data,
-                        subtitleCallback,
-                        callback
-                    )
+                val loaded = loadExtractor(
+                    fixedUrl,
+                    data,
+                    subtitleCallback,
+                    callback
+                )
 
                 if (loaded) {
                     found = true
                 }
 
             } catch (_: Exception) {
-                /*
-                 * Satu server error tidak boleh
-                 * menghentikan server lainnya.
-                 */
                 continue
             }
         }
 
         // =====================================================
-        // METHOD 2
-        // DIRECT IFRAME FALLBACK
+        // IFRAME FALLBACK
         // =====================================================
 
-        /*
-         * Halaman episode aktual sekarang sudah
-         * menyediakan iframe player.
-         *
-         * Contohnya saat ini iframe mengarah ke Blogger.
-         *
-         * Jadi walaupun AJAX server berubah,
-         * kita masih punya fallback.
-         */
-
         val iframes = document
-            .select(
-                "iframe[src], iframe[data-src]"
-            )
+            .select("iframe")
             .mapNotNull { iframe ->
 
-                val src = iframe
+                var src = iframe
                     .attr("src")
-                    .ifBlank {
-                        iframe.attr("data-src")
-                    }
                     .trim()
 
                 if (src.isBlank()) {
-                    null
-                } else {
-                    fixUrlNull(src)
+                    src = iframe
+                        .attr("data-src")
+                        .trim()
                 }
+
+                if (src.isBlank()) {
+                    return@mapNotNull null
+                }
+
+                fixUrlNull(src)
             }
             .distinct()
 
@@ -681,13 +641,12 @@ class Samehadaku : MainAPI() {
 
             try {
 
-                val loaded =
-                    loadExtractor(
-                        iframe,
-                        data,
-                        subtitleCallback,
-                        callback
-                    )
+                val loaded = loadExtractor(
+                    iframe,
+                    data,
+                    subtitleCallback,
+                    callback
+                )
 
                 if (loaded) {
                     found = true
