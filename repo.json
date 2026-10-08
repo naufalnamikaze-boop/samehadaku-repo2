@@ -1,0 +1,8 @@
+{
+  "name": "Naufal Namikaze CloudStream",
+  "description": "My CloudStream extensions",
+  "manifestVersion": 1,
+  "pluginLists": [
+    "https://raw.githubusercontent.com/naufalnamikaze-boop/samehadaku-repo2/builds/plugins.json"
+  ]
+}
